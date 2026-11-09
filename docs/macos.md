@@ -8,7 +8,7 @@
 
 ## 下载与安装
 
-从 [GitHub Releases](https://github.com/yizhiru/Yomitoki/releases) 下载最新版本。0.1.0 预编译安装包为 `Yomitoki-0.1.0-macos-arm64.zip`，适用于 Apple Silicon Mac，需要 macOS 14 或更新版本。解压后将「读解.app」拖入「应用程序」即可。发布页提供 `SHA256SUMS.txt`，可用 `shasum -a 256 -c SHA256SUMS.txt` 校验下载文件。
+从 [GitHub Releases](https://github.com/yizhiru/Yomitoki/releases) 下载最新版本。0.1.1 预编译安装包为 `Yomitoki-0.1.1-macos-arm64.zip`，适用于 Apple Silicon Mac，需要 macOS 14 或更新版本。解压后将「读解.app」拖入「应用程序」即可。发布页提供 `SHA256SUMS.txt`，可用 `shasum -a 256 -c SHA256SUMS.txt` 校验下载文件。
 
 当前安装包采用本地 ad-hoc 签名，未经 Apple 公证。若 macOS 阻止启动，可在确认下载来源后，按系统提示前往「系统设置 → 隐私与安全性」允许打开。离线词典和翻译引擎已随 App 提供；本地翻译模型由用户自行下载。EPUB 和 MOBI 导入需要安装 calibre。功能与安装说明详见[更新记录](../CHANGELOG.md)。
 

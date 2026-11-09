@@ -13,8 +13,8 @@ Windows 客户端位于 `desktop/`，采用 Electron，macOS 继续使用原有 
 ## 模型设置
 
 - 大模型释义、长句分析和对话共用「设置 → 大模型」中的服务商、URL、模型与 API key。支持 DeepSeek 或 OpenAI Chat Completions 兼容接口。API key 使用 Windows 系统加密保存，不写入导出文件。
-- 本地翻译已内置固定版本 llama.cpp CPU 引擎，无需 Homebrew、Python 或手动选择引擎。点击「下载 Q4 模型」从 HF 镜像或 ModelScope 下载约 1.13 GB 的 Hy-MT2 权重，也可选择已有 GGUF 文件。大小与 SHA-256 校验通过后启用。
-- 本地翻译仅在主动点击时运行，不联网发送选文。Windows 初版使用 CPU 推理，速度取决于处理器与选文长度；与 macOS Metal 加速版本可能有明显差异。可在设置中释放模型内存。
+- 本地翻译已内置固定版本 llama.cpp Vulkan GPU 与 CPU 引擎，无需 Homebrew、Python 或手动选择引擎。点击「下载 Q4 模型」从 HF 镜像或 ModelScope 下载约 1.13 GB 的 Hy-MT2 权重，也可选择已有 GGUF 文件。大小与 SHA-256 校验通过后启用。
+- 本地翻译仅在主动点击时运行，不联网发送选文。0.1.1 起可选择自动、GPU 或 CPU 模式，自动模式优先 GPU，失败时回退 CPU；具体使用与验证范围见 [GPU 加速说明](windows-gpu.md)。可在设置中释放模型内存。
 - 释义、分析和翻译均有本机缓存，重新查询可跳过缓存。切换阅读位置或停止查询会取消旧请求，过期响应不覆盖当前结果。
 
 ## 数据

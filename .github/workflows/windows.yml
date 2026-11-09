@@ -12,6 +12,13 @@ jobs:
         working-directory: desktop
     steps:
       - uses: actions/checkout@v7.0.1
+      - name: Read application version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid release version' }
+          "version=$version" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: '24'
@@ -34,8 +41,11 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - name: Install and verify the real application
         shell: pwsh
+        env:
+          YOMITOKI_BUILD_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          $installer = Get-Item ../dist/windows/Yomitoki-0.1.0-windows-x64-setup.exe
+          $version = $env:YOMITOKI_BUILD_VERSION
+          $installer = Get-Item "../dist/windows/Yomitoki-${version}-windows-x64-setup.exe"
           $destination = Join-Path $env:RUNNER_TEMP 'Installed Yomitoki'
           $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
@@ -58,8 +68,8 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: Yomitoki-0.1.0-windows-x64
-          path: dist/windows/Yomitoki-0.1.0-windows-x64-setup.exe
+          name: Yomitoki-${{ steps.version.outputs.version }}-windows-x64
+          path: dist/windows/Yomitoki-${{ steps.version.outputs.version }}-windows-x64-setup.exe
           if-no-files-found: error
       - name: Upload test diagnostics
         if: always()

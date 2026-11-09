@@ -8,10 +8,10 @@
 
 ## 平台与安装
 
-| 平台 | 0.1.0 安装包 | 要求 |
+| 平台 | 0.1.1 安装包 | 要求 |
 | --- | --- | --- |
-| macOS | `Yomitoki-0.1.0-macos-arm64.zip` | Apple Silicon，macOS 14+ |
-| Windows | `Yomitoki-0.1.0-windows-x64-setup.exe` | Windows 10 / 11，64 位 Intel / AMD |
+| macOS | `Yomitoki-0.1.1-macos-arm64.zip` | Apple Silicon，macOS 14+ |
+| Windows | `Yomitoki-0.1.1-windows-x64-setup.exe` | Windows 10 / 11，64 位 Intel / AMD |
 
 macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安装向导。安装包包含离线词典和翻译引擎，**不包含模型权重**。校验文件随 Release 提供。
 
@@ -32,9 +32,9 @@ macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安�
 2. **选中文字**：单词显示两种释义，完整句子显示翻译与长句分析，段落显示翻译；有效选区均可打开对话。单击自动查词默认关闭，复制使用系统快捷键。
 3. **配置模型（可选）**：在「设置」填写 DeepSeek 或 OpenAI 兼容接口和自己的 API key；本地翻译需手动下载或选择约 1.13 GB 的 Q4 模型，支持 HF 镜像与 ModelScope。
 
-选择文字不会自动请求模型。释义、分析和译文会缓存；远程功能按你的 API 账户计费。本地翻译引擎已内置，macOS 使用 Metal，Windows 初版使用 CPU。
+选择文字不会自动请求模型。释义、分析和译文会缓存；远程功能按你的 API 账户计费。本地翻译引擎已内置，macOS 使用 Metal，Windows 0.1.1 起优先使用 Vulkan GPU，自动模式下失败回退 CPU。
 
-开发分支新增 Windows Vulkan GPU 加速、自动检测与 CPU 回退，使用方式与验证范围见 [Windows GPU 加速](docs/windows-gpu.md)。此功能尚未包含在已发布的 0.1.0 中。
+Windows 提供「自动 / GPU / CPU」选项，使用方式与验证范围见 [Windows GPU 加速](docs/windows-gpu.md)。
 
 详细说明：[macOS](docs/macos.md) · [Windows](docs/windows.md)。两端数据独立保存，暂不提供跨设备自动同步。
 
