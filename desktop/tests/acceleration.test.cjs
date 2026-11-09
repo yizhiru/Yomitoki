@@ -29,8 +29,9 @@ function fixture(environment = {}, noDevice = false) {
     async close() { await engine.stop(); fs.rmSync(directory, { recursive: true, force: true }); } };
 }
 test('只识别真正列出的 Vulkan 设备，CPU 与 GPU 使用不同参数', () => {
-  const devices = parseDevices('Available devices:\n  Vulkan0: NVIDIA example (4096 MiB)\n  CPU: CPU\n  Vulkan1: AMD example\n');
+  const devices = parseDevices('Available devices:\n  Vulkan0: NVIDIA example (4096 MiB)\n  CPU: CPU\n  Vulkan1: AMD example\n  Vulkan2: llvmpipe\n  Vulkan3: Microsoft Basic Render Driver\n');
   assert.equal(devices.length, 2); assert.equal(devices[0].id, 'Vulkan0');
+  assert.equal(devices[0].name, 'NVIDIA example');
   assert.deepEqual(backendArgs(candidates('cpu', { devices })[0]), ['--device', 'none', '-ngl', '0']);
   assert.deepEqual(backendArgs(candidates('gpu', { devices })[0]), ['--device', 'Vulkan0', '-ngl', '99']);
   assert.deepEqual(candidates('auto', { devices: [] }), [{ backend: 'cpu' }]);
@@ -61,7 +62,8 @@ test('无显卡自动回退 CPU；强制 CPU 不初始化 GPU；强制 GPU 明�
   const f = fixture({}, true);
   try {
     await f.engine.start(f.model, 'auto'); assert.equal(f.engine.status().backend, 'cpu');
-    await f.engine.start(f.model, 'cpu'); const probes = f.probes();
+    const probes = f.probes(); await f.engine.start(f.model, 'cpu');
+    assert.equal(f.probes(), probes);
     await f.engine.start(f.model, 'cpu'); assert.equal(f.probes(), probes);
     await assert.rejects(f.engine.start(f.model, 'gpu'), /Vulkan 显卡/);
     assert.ok(f.calls.every(call => call.executable.includes('runtime' + path.sep)));

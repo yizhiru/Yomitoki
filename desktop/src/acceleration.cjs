@@ -3,7 +3,10 @@ function parseDevices(stdout) {
   const devices = [];
   for (const line of stdout.split(/\r?\n/)) {
     const match = line.match(/^\s*(Vulkan\d+):\s*(.+)$/);
-    if (match) devices.push({ id: match[1], name: match[2].trim() });
+    if (match && !/llvmpipe|lavapipe|swiftshader|microsoft basic render|software rasterizer/i.test(match[2])) {
+      const name = match[2].replace(/\s*\([^()]*MiB[^()]*\)\s*$/, '').trim();
+      devices.push({ id: match[1], name });
+    }
   }
   return devices;
 }
