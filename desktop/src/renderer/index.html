@@ -47,7 +47,10 @@
         <small class="muted">释义、分析和对话共用此配置，仅主动查询或发送问题时请求。API key 使用系统加密保存。HTTP 接口会明文传输凭据和选文。</small>
         <button id="save-model" class="primary">保存模型设置</button>
       </section>
-      <section><h3>本地翻译</h3><p>Hy-MT2-1.8B · Q4_K_M</p><small class="muted">翻译引擎已内置（CPU）。模型约 1.13 GB，由你选择下载；翻译不发送原文到云端。</small>
+      <section><h3>本地翻译</h3><p>Hy-MT2-1.8B · Q4_K_M</p><small class="muted">已内置 GPU 与 CPU 引擎。模型约 1.13 GB，由你选择下载；翻译不发送原文到云端。</small>
+        <label>翻译加速<select id="translation-acceleration"><option value="auto">自动（优先 GPU，失败回退 CPU）</option><option value="gpu">GPU（Vulkan）</option><option value="cpu">仅 CPU</option></select></label>
+        <div class="button-row"><button id="detect-gpu">检测显卡</button></div><small id="gpu-detection" class="muted">兼容显卡与驱动可使用 GPU；实际执行后显示使用情况。</small>
+        <small id="translation-runtime" class="muted"></small>
         <label>模型下载源<select id="mirror"><option value="hf">HF 镜像</option><option value="modelscope">ModelScope</option></select></label>
         <div class="button-row"><button id="download-model">下载 Q4 模型</button><button id="select-model">选择已有模型…</button></div>
         <p id="model-path" class="muted path-text">尚未选择模型</p>

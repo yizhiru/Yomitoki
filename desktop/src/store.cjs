@@ -7,7 +7,7 @@ function defaults() {
   const book = { id: randomUUID(), name: '雨上がりの喫茶店（示例）', kind: 'TXT', pages: [sampleText], page: 0 };
   return { version: 1, books: [book], current: book.id, words: [], chats: [], caches: {},
     settings: { fontSize: 26, definitionSize: 20, singleClick: false, sidebarWidth: 220, detailWidth: 380,
-      provider: 'deepseek', model: 'deepseek-flash', url: 'https://api.deepseek.com', mirror: 'hf', modelPath: '' } };
+      provider: 'deepseek', model: 'deepseek-flash', url: 'https://api.deepseek.com', mirror: 'hf', modelPath: '', translationAcceleration: 'auto' } };
 }
 class Store {
   constructor(directory) {
@@ -17,6 +17,7 @@ class Store {
     this.data = fs.existsSync(this.file) ? JSON.parse(fs.readFileSync(this.file, 'utf8')) : defaults();
     if (!Array.isArray(this.data.books) || !Array.isArray(this.data.words) || !this.data.settings) throw new Error('数据文件无法读取，原文件已保留。');
     this.data.chats ||= []; this.data.caches ||= {};
+    this.data.settings.translationAcceleration ||= 'auto';
   }
   change(update) {
     const next = structuredClone(this.data);

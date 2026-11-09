@@ -53,6 +53,7 @@ function definitionBody(definition) {
 }
 function renderResult(value) {
   const detail = $('detail-body'); detail.replaceChildren(); result = value;
+  if (value.execution) state.translationRuntime = value.execution;
   if (value.cached) detail.append(element('small', '已从本地缓存读取'));
   if (value.definition) {
     detail.append(definitionBody(value.definition));
@@ -70,6 +71,7 @@ function renderResult(value) {
     detail.append(button('重新分析', () => runAction('analysis', true, value.selection)));
   } else if (value.translation) {
     detail.append(element('h2', '本地翻译'), section('中文译文', value.translation), button('重新翻译', () => runAction('translate', true, value.selection)));
+    if (value.execution) detail.append(element('small', runtimeDescription(value.execution)));
   }
   detail.append(original(value.selection));
 }
@@ -185,6 +187,7 @@ $('reader').addEventListener('click', event => attempt(async () => {
   if (word) await runAction('dictionary', false, selectionPayload(word.start, word.end));
 }));
 async function openSettings() {
+  sync(await api.call('state'));
   const settings = state.settings;
   $('single-click').checked = settings.singleClick;
   $('font-size').value = settings.fontSize; $('font-value').value = settings.fontSize;
@@ -193,8 +196,26 @@ async function openSettings() {
   $('api-key').value = ''; $('clear-key').checked = false;
   $('key-status').textContent = state.hasKey ? '已保存加密的 API key。' : '尚未配置 API key。';
   $('mirror').value = settings.mirror; $('model-path').textContent = settings.modelPath || '尚未选择模型';
+  $('translation-acceleration').value = settings.translationAcceleration;
+  $('translation-runtime').textContent = runtimeDescription(state.translationRuntime);
   $('settings-dialog').showModal();
 }
+function runtimeDescription(runtime) {
+  if (!runtime?.backend) return '尚未加载翻译模型。';
+  if (runtime.backend === 'vulkan') return `正在使用 GPU · ${runtime.device} · ${runtime.gpuLayers} 层已加速`;
+  return `正在使用 CPU。${runtime.reason || ''}`;
+}
+$('translation-acceleration').addEventListener('change', () => attempt(async () => {
+  sync(await api.call('settings', { translationAcceleration: $('translation-acceleration').value }));
+  $('translation-runtime').textContent = runtimeDescription(state.translationRuntime);
+}));
+$('detect-gpu').addEventListener('click', () => attempt(async () => {
+  $('detect-gpu').disabled = true; $('gpu-detection').textContent = '正在检测显卡…';
+  try {
+    const detected = await api.call('detect-gpu');
+    $('gpu-detection').textContent = detected.devices.length ? `检测到 GPU：${detected.devices.map(device => device.name).join('；')}` : detected.reason;
+  } finally { $('detect-gpu').disabled = false; }
+}));
 for (const [id, key, output] of [['font-size', 'fontSize', 'font-value'], ['definition-size', 'definitionSize', 'definition-value']]) {
   $(id).addEventListener('input', () => { state.settings[key] = Number($(id).value); $(output).value = $(id).value; applySettings(); });
   $(id).addEventListener('change', () => attempt(async () => sync(await api.call('settings', { [key]: Number($(id).value) }))));
@@ -207,7 +228,10 @@ $('save-model').addEventListener('click', () => attempt(async () => {
 }));
 $('mirror').addEventListener('change', () => attempt(async () => sync(await api.call('settings', { mirror: $('mirror').value }))));
 for (const action of ['select-model', 'release-model']) $(action).addEventListener('click', () => attempt(async () => {
-  const next = await api.call(action); if (next && typeof next === 'object') { sync(next); $('model-path').textContent = state.settings.modelPath; } else notice('已释放模型内存');
+  const next = await api.call(action);
+  if (next && typeof next === 'object') { sync(next); $('model-path').textContent = state.settings.modelPath; }
+  else { sync(await api.call('state')); notice('已释放模型内存'); }
+  $('translation-runtime').textContent = runtimeDescription(state.translationRuntime);
 }));
 $('download-model').addEventListener('click', () => attempt(async () => {
   $('download-model').disabled = true; $('select-model').disabled = true; $('cancel-download').hidden = false; $('download-progress').hidden = false;
