@@ -34,6 +34,8 @@ macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安�
 
 选择文字不会自动请求模型。释义、分析和译文会缓存；远程功能按你的 API 账户计费。本地翻译引擎已内置，macOS 使用 Metal，Windows 初版使用 CPU。
 
+开发分支新增 Windows Vulkan GPU 加速、自动检测与 CPU 回退，使用方式与验证范围见 [Windows GPU 加速](docs/windows-gpu.md)。此功能尚未包含在已发布的 0.1.0 中。
+
 详细说明：[macOS](docs/macos.md) · [Windows](docs/windows.md)。两端数据独立保存，暂不提供跨设备自动同步。
 
 ## 从源码构建

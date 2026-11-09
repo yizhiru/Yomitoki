@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare pinned reading data and a minimal Windows CPU runtime; no model weights."""
+"""Prepare pinned reading data and isolated CPU / Vulkan runtimes; no model weights."""
 import hashlib
 import json
 import os
@@ -14,8 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".build/data"
 OUTPUT = ROOT / "desktop/.build/resources"
 DICTIONARY_SHA = "809d104fe3c1e0ab328ff265bdc52b5eed1f9b669088fd199ef4e713812958a3"
-ENGINE_SHA = "2a48f973521cb76fdf8123b12c62a89ad59b01372b98405123dd4e7114e1ae27"
-ENGINE_ASSET = "llama-b12097-bin-win-cpu-x64.zip"
+ENGINES = {
+    "cpu": ("llama-b12097-bin-win-cpu-x64.zip", "2a48f973521cb76fdf8123b12c62a89ad59b01372b98405123dd4e7114e1ae27"),
+    "vulkan": ("llama-b12097-bin-win-vulkan-x64.zip", "cbc13c1499c23cffb0526af5a81d22c12c6a0214fcc4efd186e2c81690f7815c"),
+}
 
 
 def digest(path):
@@ -43,6 +45,42 @@ def download(url, target, expected):
         raise RuntimeError("Checksum mismatch: " + target.name)
 
 
+def bundle_runtime(backend, licence):
+    asset, expected = ENGINES[backend]
+    runtime = OUTPUT / ("runtime" if backend == "cpu" else "runtime-vulkan")
+    archive = ROOT / ".build/runtime" / asset
+    download("https://github.com/ggml-org/llama.cpp/releases/download/b12097/" + asset, archive, expected)
+    # These are generated resources, rebuilt to exclude stale DLLs.
+    if runtime.exists():
+        shutil.rmtree(runtime)
+    runtime.mkdir()
+    seen = set()
+    excluded = {"llama-batched-bench-impl.dll", "llama-bench-impl.dll", "llama-cli-impl.dll",
+                "llama-completion-impl.dll", "llama-perplexity-impl.dll", "llama-quantize-impl.dll"}
+    with zipfile.ZipFile(archive) as source:
+        for item in source.infolist():
+            name = PurePosixPath(item.filename)
+            if name.is_absolute() or ".." in name.parts:
+                raise RuntimeError("Unsafe archive member")
+            is_licence = name.name.lower().startswith(("license", "licence", "notice", "copying"))
+            if (name.suffix.lower() != ".dll" and name.name != "llama-server.exe" and not is_licence) or name.name.lower() in excluded:
+                continue
+            if name.name.lower() in seen:
+                raise RuntimeError("Duplicate runtime filename: " + name.name)
+            seen.add(name.name.lower())
+            with source.open(item) as incoming, (runtime / name.name).open("wb") as outgoing:
+                shutil.copyfileobj(incoming, outgoing)
+    if "llama-server.exe" not in seen or (backend == "vulkan" and "ggml-vulkan.dll" not in seen):
+        raise RuntimeError("Missing Windows translation backend")
+    shutil.copyfile(ROOT / "Resources/Runtime/ThirdPartyNotices.txt", runtime / "ThirdPartyNotices.txt")
+    (runtime / "llama.cpp-LICENSE.txt").write_bytes(licence)
+    manifest = {"version": "b12097", "backend": backend, "architecture": "x64",
+                "source": "https://github.com/ggml-org/llama.cpp/releases/tag/b12097", "archiveSHA256": expected,
+                "files": [{"path": file.name, "sha256": digest(file)} for file in sorted(runtime.iterdir())
+                          if file.suffix.lower() in (".exe", ".dll")]}
+    (runtime / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -56,34 +94,11 @@ def main():
     shutil.copyfile(ROOT / "Resources/zh.tsv", OUTPUT / "zh.tsv")
     shutil.copyfile(ROOT / "Resources/AppIcon.png", OUTPUT / "AppIcon.png")
     shutil.copytree(ROOT / "Resources/Dictionary", OUTPUT / "Dictionary", dirs_exist_ok=True)
-    runtime = OUTPUT / "runtime"
-    runtime.mkdir(exist_ok=True)
-    archive = ROOT / ".build/runtime" / ENGINE_ASSET
-    download("https://github.com/ggml-org/llama.cpp/releases/download/b12097/" + ENGINE_ASSET, archive, ENGINE_SHA)
-    seen = set()
-    with zipfile.ZipFile(archive) as source:
-        for item in source.infolist():
-            name = PurePosixPath(item.filename)
-            if name.is_absolute() or ".." in name.parts:
-                raise RuntimeError("Unsafe archive member")
-            if name.suffix.lower() != ".dll" and name.name != "llama-server.exe":
-                continue
-            if name.name.lower() in seen:
-                raise RuntimeError("Duplicate runtime filename: " + name.name)
-            seen.add(name.name.lower())
-            with source.open(item) as incoming, (runtime / name.name).open("wb") as outgoing:
-                shutil.copyfileobj(incoming, outgoing)
-    if "llama-server.exe" not in seen:
-        raise RuntimeError("Missing Windows translation engine")
-    shutil.copyfile(ROOT / "Resources/Runtime/ThirdPartyNotices.txt", runtime / "ThirdPartyNotices.txt")
-    licence = runtime / "llama.cpp-LICENSE.txt"
     with urllib.request.urlopen("https://raw.githubusercontent.com/ggml-org/llama.cpp/b97627967/LICENSE", timeout=60) as incoming:
-        licence.write_bytes(incoming.read())
-    manifest = {"version": "b12097", "architecture": "x64", "source": "https://github.com/ggml-org/llama.cpp/releases/tag/b12097",
-                "archiveSHA256": ENGINE_SHA, "files": [{"path": path.name, "sha256": digest(path)}
-                    for path in sorted(runtime.iterdir()) if path.suffix.lower() in (".exe", ".dll")]}
-    (runtime / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print("Prepared dictionary and Windows CPU engine; no model weights.")
+        licence = incoming.read()
+    for backend in ENGINES:
+        bundle_runtime(backend, licence)
+    print("Prepared dictionary and isolated Windows CPU / Vulkan engines; no model weights.")
 
 
 if __name__ == "__main__":

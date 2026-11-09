@@ -67,6 +67,14 @@ test('阅读、三级选文、模型功能、生词导出、设置持久化与�
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(folder, 'library.json'))).settings.detailWidth).toBe(390);
     await page.locator('#settings-button').click();
     await expect(page.locator('#single-click')).not.toBeChecked();
+    await expect(page.locator('#translation-acceleration')).toHaveValue('auto');
+    await page.locator('#translation-acceleration').selectOption('gpu');
+    await expect.poll(() => JSON.parse(fs.readFileSync(path.join(folder, 'library.json'))).settings.translationAcceleration).toBe('gpu');
+    await page.locator('#translation-acceleration').selectOption('cpu');
+    await page.locator('#detect-gpu').click();
+    await expect(page.locator('#gpu-detection')).not.toHaveText('正在检测显卡…', { timeout: 25000 });
+    await expect(page.locator('#gpu-detection')).not.toBeEmpty();
+    await expect(page.locator('#translation-runtime')).toHaveText('尚未加载翻译模型。');
     await page.locator('#font-size').evaluate(input => { input.value = 28; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
     await page.locator('#definition-size').evaluate(input => { input.value = 22; input.dispatchEvent(new Event('input')); input.dispatchEvent(new Event('change')); });
     // Avoid a macOS keychain consent dialog in automated source-client tests.
@@ -124,6 +132,7 @@ test('阅读、三级选文、模型功能、生词导出、设置持久化与�
     await expect(page.locator('#reader')).toContainText('Yomitoki PDF reading');
     const persisted = JSON.parse(fs.readFileSync(path.join(folder, 'library.json')));
     expect(persisted.settings.fontSize).toBe(28); expect(persisted.settings.definitionSize).toBe(22); expect(persisted.settings.detailWidth).toBe(390);
+    expect(persisted.settings.translationAcceleration).toBe('cpu');
     expect(persisted.words).toHaveLength(1); expect(persisted.chats[0].messages).toHaveLength(2);
     expect(JSON.stringify(persisted)).not.toContain('"apiKey"');
   } finally {

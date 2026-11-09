@@ -15,7 +15,7 @@ if (process.env.YOMITOKI_DATA_DIRECTORY) app.setPath('userData', process.env.YOM
 let window, store, dictionary, engine, ready, request, download, generation = 0, lastLookup, quitting = false;
 const entryFile = path.join(__dirname, 'renderer/index.html');
 const resources = () => app.isPackaged ? path.join(process.resourcesPath, 'reading') : path.join(__dirname, '../.build/resources');
-const state = () => ({ ...store.publicState(), version: app.getVersion(), platform: process.platform });
+const state = () => ({ ...store.publicState(), version: app.getVersion(), platform: process.platform, translationRuntime: engine.status() });
 const cancel = () => { generation++; request?.abort(); request = null; };
 function selected(input) {
   const book = store.book, text = book.pages[book.page];
@@ -43,9 +43,10 @@ async function saveSettings(input) {
     sidebarWidth: numeric('sidebarWidth', 160, 400), detailWidth: numeric('detailWidth', 260, 800),
     singleClick: input.singleClick === undefined ? current.singleClick : Boolean(input.singleClick),
     provider: input.provider ?? current.provider, model: input.model ?? current.model, url: input.url ?? current.url,
-    mirror: input.mirror ?? current.mirror };
+    mirror: input.mirror ?? current.mirror, translationAcceleration: input.translationAcceleration ?? current.translationAcceleration };
   if (!['deepseek', 'custom'].includes(next.provider) || typeof next.model !== 'string' || next.model.length > 200
-    || typeof next.url !== 'string' || next.url.length > 2000 || !['hf', 'modelscope'].includes(next.mirror)) throw new Error('模型配置无效。');
+    || typeof next.url !== 'string' || next.url.length > 2000 || !['hf', 'modelscope'].includes(next.mirror)
+    || !['auto', 'gpu', 'cpu'].includes(next.translationAcceleration)) throw new Error('模型配置无效。');
   if (input.provider || input.url) endpoint(next);
   if (typeof input.apiKey === 'string' && input.apiKey.trim()) {
     if (input.apiKey.length > 4000 || /[\r\n]/.test(input.apiKey)) throw new Error('API key 格式无效。');
@@ -54,6 +55,7 @@ async function saveSettings(input) {
   }
   if (input.clearKey) next.keyBlob = '';
   store.change(data => Object.assign(data.settings, next));
+  if (next.translationAcceleration !== current.translationAcceleration) { cancel(); await engine.stop(); }
   return state();
 }
 async function query(action, input) {
@@ -102,8 +104,8 @@ async function query(action, input) {
     const identity = `${model}|${info.size}|${info.mtimeMs}`;
     const key = store.cacheKey('ja-zh-v1', identity, text);
     let result = !input.refresh && store.cached(key), cached = Boolean(result);
-    if (!result) { result = await engine.translate(model, text, signal); check(); store.cache(key, result); }
-    check(); return { type: action, translation: result, selection, cached };
+    if (!result) { result = await engine.translate(model, text, signal, store.data.settings.translationAcceleration); check(); store.cache(key, result); }
+    check(); return { type: action, translation: result, selection, cached, execution: cached ? null : engine.status() };
   }
   if (action === 'chat') {
     if (typeof input.question !== 'string' || !input.question.trim() || input.question.length > 4000) throw new Error('请输入问题（最多 4000 字符）。');
@@ -124,6 +126,7 @@ async function dispatch(action, input = {}) {
   switch (action) {
     case 'state': return state();
     case 'settings': return saveSettings(input);
+    case 'detect-gpu': return engine.detect(true);
     case 'import': {
       const result = await dialog.showOpenDialog(window, { title: '导入日语文档', properties: ['openFile'], filters: [{ name: '阅读文档', extensions: ['pdf', 'epub', 'mobi', 'txt'] }] });
       if (result.canceled) return null;
