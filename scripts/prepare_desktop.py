@@ -62,7 +62,8 @@ def bundle_runtime(backend, licence):
             name = PurePosixPath(item.filename)
             if name.is_absolute() or ".." in name.parts:
                 raise RuntimeError("Unsafe archive member")
-            if (name.suffix.lower() != ".dll" and name.name != "llama-server.exe") or name.name.lower() in excluded:
+            is_licence = name.name.lower().startswith(("license", "licence", "notice", "copying"))
+            if (name.suffix.lower() != ".dll" and name.name != "llama-server.exe" and not is_licence) or name.name.lower() in excluded:
                 continue
             if name.name.lower() in seen:
                 raise RuntimeError("Duplicate runtime filename: " + name.name)

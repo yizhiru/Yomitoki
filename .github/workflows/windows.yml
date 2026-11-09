@@ -49,6 +49,8 @@ jobs:
           $gpuRuntime = Join-Path $destination 'resources/reading/runtime-vulkan'
           if (!(Test-Path (Join-Path $gpuRuntime 'llama-server.exe'))) { throw 'Vulkan engine is missing' }
           if (!(Test-Path (Join-Path $gpuRuntime 'ggml-vulkan.dll'))) { throw 'Vulkan backend is missing' }
+          if (!(Test-Path (Join-Path $gpuRuntime 'LICENSE-LLVM-OpenMP'))) { throw 'Vulkan runtime license is missing' }
+          if (!(Test-Path (Join-Path $destination 'resources/reading/runtime/LICENSE-LLVM-OpenMP'))) { throw 'CPU runtime license is missing' }
           if (Get-ChildItem $destination -Recurse -Filter '*.gguf') { throw 'Model weights must not be bundled' }
           $env:YOMITOKI_EXECUTABLE = $executable
           npm run test:ui
