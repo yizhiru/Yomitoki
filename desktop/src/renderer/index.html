@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>读解 · 日语深度阅读</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="workspace">
+    <aside id="sidebar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">▤</span><div><strong>读解</strong><small>日语深度阅读</small></div></div>
+      <nav><button id="reading-tab" class="active">阅读</button><button id="notebook-tab">生词本</button></nav>
+      <div class="section-title"><span>书架</span><button id="import" class="plain">＋ 导入</button></div>
+      <div id="books"></div>
+      <button id="settings-button" class="settings-entry">设置</button>
+      <small id="version"></small>
+    </aside>
+    <div class="splitter" id="sidebar-split" role="separator" aria-label="调整书架宽度" aria-orientation="vertical" tabindex="0"></div>
+    <main>
+      <header><div><h1 id="book-title">正在准备词典…</h1><span id="book-location" class="muted"></span></div>
+        <div class="header-actions"><button id="previous" title="上一页或节">←</button><input id="page-number" type="number" min="1" aria-label="跳转到页或节"><button id="next" title="下一页或节">→</button></div>
+      </header>
+      <div id="reading-scroll"><article id="reader" lang="ja" tabindex="0"></article></div>
+      <section id="notebook" hidden><div class="notebook-tools"><input id="word-search" type="search" placeholder="搜索单词、读音或释义"><button id="export-button">导出…</button></div><div id="words"></div></section>
+    </main>
+    <div class="splitter" id="detail-split" role="separator" aria-label="调整释义宽度" aria-orientation="vertical" tabindex="0"></div>
+    <aside id="detail"><div id="detail-body"><p class="empty">选中文字，开始读解。<br><small>单词查释义，句子做分析，段落可翻译。</small></p></div></aside>
+  </div>
+  <div id="selection-toolbar" role="toolbar" aria-label="选文操作" hidden></div>
+  <div id="status" role="status" aria-live="polite"></div>
+  <dialog id="settings-dialog">
+    <form method="dialog"><div class="dialog-heading"><h2>设置</h2><button aria-label="关闭设置">✕</button></div></form>
+    <div class="settings-grid">
+      <section><h3>阅读显示</h3>
+        <label class="toggle"><input id="single-click" type="checkbox">单击自动查词</label><small class="muted">关闭后，选中文字并点击释义按钮才查询。使用 Ctrl+C 复制。</small>
+        <label>正文字号 <output id="font-value"></output><input id="font-size" type="range" min="16" max="40"></label>
+        <label>释义字号 <output id="definition-value"></output><input id="definition-size" type="range" min="14" max="30"></label>
+      </section>
+      <section><h3>大模型</h3>
+        <label>服务商<select id="provider"><option value="deepseek">DeepSeek</option><option value="custom">自定义（OpenAI 兼容）</option></select></label>
+        <label>API URL<input id="api-url" type="url" placeholder="https://api.example.com/v1"></label>
+        <label>模型名称<input id="model-name" placeholder="deepseek-flash"></label>
+        <label>API key<input id="api-key" type="password" autocomplete="off" placeholder="输入新 key；留空保留已有配置"></label>
+        <small id="key-status" class="muted"></small><label class="toggle"><input id="clear-key" type="checkbox">删除已保存的 API key</label>
+        <small class="muted">释义、分析和对话共用此配置，仅主动查询或发送问题时请求。API key 使用系统加密保存。HTTP 接口会明文传输凭据和选文。</small>
+        <button id="save-model" class="primary">保存模型设置</button>
+      </section>
+      <section><h3>本地翻译</h3><p>Hy-MT2-1.8B · Q4_K_M</p><small class="muted">翻译引擎已内置（CPU）。模型约 1.13 GB，由你选择下载；翻译不发送原文到云端。</small>
+        <label>模型下载源<select id="mirror"><option value="hf">HF 镜像</option><option value="modelscope">ModelScope</option></select></label>
+        <div class="button-row"><button id="download-model">下载 Q4 模型</button><button id="select-model">选择已有模型…</button></div>
+        <p id="model-path" class="muted path-text">尚未选择模型</p>
+        <progress id="download-progress" max="1" value="0" hidden></progress><small id="download-status" class="muted"></small>
+        <div class="button-row"><button id="cancel-download" hidden>取消下载</button><button id="release-model">释放模型内存</button></div>
+      </section>
+    </div>
+  </dialog>
+  <dialog id="export-dialog"><form method="dialog"><div class="dialog-heading"><h2>导出生词</h2><button aria-label="关闭导出">✕</button></div></form>
+    <label>格式<select id="export-format"><option value="csv">CSV 表格</option><option value="txt">纯文本 TXT</option></select></label>
+    <label>范围<select id="export-scope"><option value="all">全部生词</option><option value="filtered">当前搜索结果</option></select></label>
+    <fieldset id="export-fields"><legend>单词始终导出，其他字段按需选择</legend></fieldset><button id="export-confirm" class="primary">导出…</button>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>

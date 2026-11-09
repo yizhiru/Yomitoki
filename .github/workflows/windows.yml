@@ -1,0 +1,65 @@
+name: Windows build and tests
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Prepare pinned dictionary and engine
+        run: npm run prepare:resources
+      - name: Core tests
+        run: npm test
+      - name: Source application tests
+        run: npm run test:ui
+      - name: Build Windows installer
+        run: npm run build:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Install and verify the real application
+        shell: pwsh
+        run: |
+          $installer = Get-Item ../dist/windows/Yomitoki-0.1.0-windows-x64-setup.exe
+          $destination = Join-Path $env:RUNNER_TEMP 'Installed Yomitoki'
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S', "/D=$destination" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
+          $executable = Join-Path $destination 'Yomitoki.exe'
+          if (!(Test-Path $executable)) { throw 'Installed application is missing' }
+          $engine = Join-Path $destination 'resources/reading/runtime/llama-server.exe'
+          & $engine --version
+          if ($LASTEXITCODE -ne 0) { throw 'Bundled engine failed' }
+          & $engine --list-devices
+          if ($LASTEXITCODE -ne 0) { throw 'Engine backends failed' }
+          if (Get-ChildItem $destination -Recurse -Filter '*.gguf') { throw 'Model weights must not be bundled' }
+          $env:YOMITOKI_EXECUTABLE = $executable
+          npm run test:ui
+          if ($LASTEXITCODE -ne 0) { throw 'Installed application tests failed' }
+      - name: Upload installer
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Yomitoki-0.1.0-windows-x64
+          path: dist/windows/Yomitoki-0.1.0-windows-x64-setup.exe
+          if-no-files-found: error
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: windows-test-results
+          path: desktop/test-results
+          if-no-files-found: ignore

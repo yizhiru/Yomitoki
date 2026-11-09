@@ -1,0 +1,72 @@
+name: Attach verified Windows installer
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: Successful Windows build run ID
+        required: true
+      tag:
+        description: Existing draft release tag
+        default: v0.1.0
+        required: true
+permissions:
+  contents: read
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN: ${{ inputs.run-id }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify successful build and matching application sources
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          def api(route):
+              return json.loads(subprocess.check_output(['gh', 'api', 'repos/' + repo + route], text=True))
+          assert re.fullmatch(r'v\d+\.\d+\.\d+', os.environ['RELEASE_TAG'])
+          assert os.environ['BUILD_RUN'].isdigit()
+          run = api('/actions/runs/' + os.environ['BUILD_RUN'])
+          assert run['conclusion'] == 'success' and run['path'] == '.github/workflows/windows.yml'
+          assert run['head_repository']['full_name'] == repo
+          previous = api('/git/commits/' + run['head_sha'])
+          tree = api('/git/trees/' + previous['tree']['sha'] + '?recursive=1')
+          def relevant(name):
+              return name.split('/')[0] in {'Sources', 'Resources', 'desktop', 'scripts'}
+          tested = {item['path']: item['sha'] for item in tree['tree'] if item['type'] == 'blob' and relevant(item['path'])}
+          current = {}
+          for line in subprocess.check_output(['git', 'ls-tree', '-r', '--format=%(objectname) %(path)', 'HEAD'], text=True).splitlines():
+              sha, name = line.split(' ', 1)
+              if relevant(name): current[name] = sha
+          assert tested == current, 'Application sources differ from the tested Windows build'
+          release = next(item for item in api('/releases?per_page=100') if item['tag_name'] == os.environ['RELEASE_TAG'])
+          assert release['draft'], 'Only a draft release may be assembled'
+          tag = api('/commits/' + os.environ['RELEASE_TAG'])
+          assert tag['sha'] == os.environ['GITHUB_SHA']
+          print('Tested application sources and draft release verified.')
+          PY
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: Yomitoki-0.1.0-windows-x64
+          path: release-assets
+          run-id: ${{ inputs.run-id }}
+          github-token: ${{ github.token }}
+      - name: Attach installer and checksums
+        shell: bash
+        run: |
+          version="${RELEASE_TAG#v}"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "Yomitoki-$version-macos-arm64.zip" --dir release-assets
+          cd release-assets
+          sha256sum "Yomitoki-$version-macos-arm64.zip" "Yomitoki-$version-windows-x64-setup.exe" > SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" "Yomitoki-$version-windows-x64-setup.exe" SHA256SUMS.txt --clobber
+          cat SHA256SUMS.txt

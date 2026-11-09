@@ -1,0 +1,15 @@
+{
+  "version": "b12097",
+  "commit": "b97627967",
+  "source": "https://github.com/ggml-org/llama.cpp/releases/tag/b12097",
+  "architectures": {
+    "arm64": {
+      "asset": "llama-b12097-bin-macos-arm64.tar.gz",
+      "sha256": "019876f237dce854d4f8bc7759fe580582ac6448ac7ceb502d9f58e195bbdd89"
+    },
+    "x86_64": {
+      "asset": "llama-b12097-bin-macos-x64.tar.gz",
+      "sha256": "cbbf5dd5349b95d2133dc1e210933be08e913b8751c3800e643229fcc54ceb19"
+    }
+  }
+}

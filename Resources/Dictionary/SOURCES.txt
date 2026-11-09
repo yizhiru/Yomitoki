@@ -1,0 +1,17 @@
+The Japanese–English dictionary index is derived from JMdict by James William
+Breen and the Electronic Dictionary Research and Development Group (EDRDG).
+The JMdict-derived index is licensed under CC BY-SA 4.0.
+
+EDRDG project documentation:
+https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html
+EDRDG licence statement:
+https://www.edrdg.org/edrdg/licence.html
+CC BY-SA 4.0:
+https://creativecommons.org/licenses/by-sa/4.0/
+
+The build uses the English JSON prepared by jmdict-simplified:
+https://github.com/scriptin/jmdict-simplified/releases/tag/3.6.2%2B20261026175559
+
+The original forms, readings, parts of speech, and English glosses were
+selected and indexed by spelling in SQLite. See the source repository's
+README for the dictionary update procedure.
