@@ -1,0 +1,338 @@
+{
+  "generatedAt": "2026-11-10T01:42:39.048599+00:00",
+  "architecture": "arm64",
+  "foliateRevision": "78914aef4466eb960965702401634c2cb348e9b1",
+  "fflateVersion": "0.8.3",
+  "calibreAccess": "Denied file-read and process-exec for both system and user Applications/calibre.app by macOS Seatbelt; PATH=/usr/bin:/bin",
+  "runs": {
+    "nativeWebKitWithBuiltResources": {
+      "bundledResourceLookup": false,
+      "checks": [
+        "legacyWebKitGrouping",
+        "fixtureHashes",
+        "chapterOrder",
+        "unicode",
+        "ruby",
+        "hiddenContent",
+        "longBookNavigation",
+        "duplicateImport",
+        "dictionaryLookup",
+        "notebookSave",
+        "restartRestore",
+        "earlyCancellation",
+        "runningCancellation",
+        "navigationCancellation",
+        "timeout",
+        "preCancelledTask",
+        "missingResources",
+        "recovery",
+        "pdf",
+        "noVisibleParserWindow"
+      ],
+      "osVersion": "Version 27.2 (Build 26B123)",
+      "platform": "macOS",
+      "results": [
+        {
+          "id": "epub2-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-japanese-ruby",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-encoded-path-unicode",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub2-windows1252",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-hidden-and-script",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-ruby-many-chapters",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-uncompressed",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi8-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi-combo-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-latin",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "unicode-filename",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "corrupt-epub",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "corrupt-mobi",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "drm-flag-mobi",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "mobi6-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi8-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-windows1252",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-huff-literal",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-huff-recursive",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-utf16le",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-utf16be",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-font-obfuscation",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-encrypted-body",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "epub3-oversize-directory",
+          "ok": true,
+          "rejectedAsExpected": true
+        }
+      ]
+    },
+    "signedRelocatedHarnessWithBundleMain": {
+      "bundledResourceLookup": true,
+      "checks": [
+        "legacyWebKitGrouping",
+        "fixtureHashes",
+        "chapterOrder",
+        "unicode",
+        "ruby",
+        "hiddenContent",
+        "longBookNavigation",
+        "duplicateImport",
+        "dictionaryLookup",
+        "notebookSave",
+        "restartRestore",
+        "earlyCancellation",
+        "runningCancellation",
+        "navigationCancellation",
+        "timeout",
+        "preCancelledTask",
+        "missingResources",
+        "recovery",
+        "pdf",
+        "noVisibleParserWindow"
+      ],
+      "osVersion": "Version 27.2 (Build 26B123)",
+      "platform": "macOS",
+      "results": [
+        {
+          "id": "epub2-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-japanese-ruby",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-encoded-path-unicode",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub2-windows1252",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-hidden-and-script",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-ruby-many-chapters",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-uncompressed",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi8-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi-combo-japanese",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-latin",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "unicode-filename",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "corrupt-epub",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "corrupt-mobi",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "drm-flag-mobi",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "mobi6-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi8-spine-order",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-windows1252",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-huff-literal",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "mobi6-huff-recursive",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-utf16le",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-utf16be",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-font-obfuscation",
+          "ok": true,
+          "rejectedAsExpected": false
+        },
+        {
+          "id": "epub3-encrypted-body",
+          "ok": true,
+          "rejectedAsExpected": true
+        },
+        {
+          "id": "epub3-oversize-directory",
+          "ok": true,
+          "rejectedAsExpected": true
+        }
+      ]
+    }
+  },
+  "testHarness": "Both runs compile the production BookImport, EbookImport and ReaderState sources. The relocated signed App replaces the main executable with that test entry point; it is not automated clicking of the production SwiftUI UI.",
+  "otherChecks": {
+    "nativeExistingTestGroups": 12,
+    "electronCoreTests": 20,
+    "productionAppLaunch": true,
+    "parserSourceLicenseAndChecksumVerification": true,
+    "translationEngineRelocationAndSignatureVerification": true,
+    "archiveCRCAndExtractedAppSignature": true
+  },
+  "artifact": {
+    "file": "Yomitoki-0.1.1-macos-arm64-foliate.zip",
+    "bytes": 35043222,
+    "sha256": "96b1d783d173c4b6e957afd8c8827fec4c972e14ba215f618c09303c50aed475",
+    "productionExecutableSHA256": "5f6f81104606ce6bf5d3524b6e9228fb0cf516d6e8114ebbb87f306fb101e89f",
+    "publishedToRelease": false
+  },
+  "limits": [
+    "Physical tests ran on Apple Silicon macOS 27.2 (26B123). macOS 14 and Intel hardware were not tested.",
+    "Missing Object.groupBy and Map.groupBy were simulated in JavaScriptCore using the shipped compatibility script.",
+    "The 25 fixtures cover 20 accepted and 5 intentionally rejected inputs, not every ebook producer or complex HUFF/CDIC dictionary."
+  ]
+}

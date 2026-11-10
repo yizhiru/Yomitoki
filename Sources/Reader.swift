@@ -82,6 +82,11 @@ struct ReaderView: View {
                     }.buttonStyle(.plain).foregroundStyle(accent)
                         .help("导入 PDF、EPUB 或 MOBI 文件").accessibilityLabel("导入文件").disabled(state.importing)
                 }.padding(.horizontal, 8)
+                if state.importing {
+                    Button("取消导入", action: state.cancelImport)
+                        .buttonStyle(.plain).foregroundStyle(muted)
+                        .accessibilityLabel("取消导入").padding(.horizontal, 8)
+                }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(state.library.books) { book in

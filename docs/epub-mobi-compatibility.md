@@ -2,7 +2,7 @@
 
 验证日期：2026-11-09。针对本项目的正文重排阅读，选择 **Foliate 固定版本 + 自有加载及正文提取适配层** 作为后续内置方案，不直接采用最初候选的 Lingo 库。
 
-此报告记录 2026-11-09 的隔离选型验证。2026-11-10 已按本结论接入 Windows/Electron 的正式内置导入；macOS 原生版仍使用 Calibre。Windows 安装包回归结果将在本报告末尾记录。
+此报告记录 2026-11-09 的隔离选型验证。2026-11-10 已按本结论接入 Windows/Electron 和 macOS 原生客户端的内置导入；两端回归结果见报告末尾。正式 Release 尚未更新。
 
 ## 环境与范围
 
@@ -68,7 +68,7 @@ Windows-1252 EPUB 是刻意构造的遗留编码容错用例，此报告不是 E
 
 ## 2026-11-10 正式接入与 Windows 安装包回归
 
-Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。macOS 原生客户端的 `Sources/Core.swift` 仍通过 Calibre 转换，未在本次改动中替换。
+Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。当时 macOS 原生客户端仍通过 Calibre 转换；随后已完成下述原生客户端迁移。
 
 已完成 [Windows 真实回归运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794)，测试提交为 `1b7fdb9f1771f4bd2375fd685994b3d79866408d`，运行环境为 `windows-2022` x64。工作流先确认环境没有 Calibre，再测试源码客户端、生成 NSIS 安装程序、静默安装，并对实际安装的 `Yomitoki.exe` 重跑完整界面测试。
 
@@ -84,3 +84,16 @@ Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。macOS �
 
 
 已验证安装包：[Yomitoki-0.1.1-windows-x64 构建产物](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794/artifacts/13725952988)。产物 ZIP 大小为 211897968 字节，GitHub 记录的 ZIP SHA-256 为 `3d25e915108deaee2ce068716d609ed1f3e5fa044019b6400023ff948baa97d2`（不是 ZIP 内 EXE 的单独校验值）。
+
+
+## macOS 原生客户端接入与回归（2026-11-10）
+
+macOS 现在复用相同固定版本的 Foliate、fflate 和正文/ZIP 适配代码，随 App 打包。通过系统 WebKit 的非持久化、不可见解析页面执行，采用仅允许 App 资源的自定义 URL scheme、受限消息桥、CSP 和 30 秒超时；不启动 Calibre、Node.js、Python 或外部浏览器。Calibre 转换代码已从 `Sources/Core.swift` 移除。书架、生词本的数据格式保持兼容，旧书不自动重新导入。
+
+Safari 17.4 才加入 `Object.groupBy` / `Map.groupBy`（[WebKit 官方说明](https://webkit.org/blog/15063/webkit-features-in-safari-17-4/)），为保持 macOS 14.0 的部署目标，在不改动固定上游源文件的前提下提供缺失方法兼容层。测试会移除这两个方法，再验证分组、原型键、Symbol 键、对象键和 NaN，以及保留原生方法。
+
+在 Apple Silicon / macOS 27.2（26B123）上，两轮各 25 个用例均符合预期：20 个正常文件成功导入，5 个异常文件拒绝。覆盖 EPUB 2/3、日文 ruby、章节顺序、编码路径与日文文件名、Windows-1252、UTF-16LE/BE、长书、隐藏内容、MOBI 6 / KF8 / 混合文件，以及两个受控 HUFF/CDIC 字典；损坏、DRM 和超限目录不会写入书架。并验证查词、生词保存、重启、重复导入、阅读进度、取消、超时、资源缺失、重新导入和 PDF。
+
+测试运行在禁止读取/执行本机两处 Calibre 的系统沙箱内，PATH 不含 Homebrew。第二轮将签名测试 App 移至包含空格和日文的路径，并使用 `Bundle.main` 资源定位。该 App 使用生产导入和 ReaderState 源码，替换主程序为测试入口；最终生产二进制另做启动和签名检查。现有 12 组原生测试及 20 项 Electron 核心测试通过，包内解析器源码、许可证、哈希和翻译引擎依赖校验通过。
+
+证据：[macOS 结构化回归结果](macos-ebook-regression.json)。重跑命令见 [macOS 文档](macos.md#内置电子书兼容性回归)。本轮没有 macOS 14 真机、Intel Mac 实测，也不代表已覆盖所有商用电子书或 DRM 文件。

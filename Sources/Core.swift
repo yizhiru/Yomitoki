@@ -115,59 +115,39 @@ enum BookImport {
         let message: String
         var errorDescription: String? { message }
     }
-    static func read(_ url: URL) throws -> Book {
+    @MainActor static func read(_ url: URL, ebookResources: URL? = nil, timeout: TimeInterval = 30) async throws -> Book {
+        try Task.checkCancellation()
         let kind = url.pathExtension.uppercased()
         let pages: [String]
         switch kind {
         case "PDF":
-            guard let doc = PDFDocument(url: url), !doc.isLocked else {
-                throw Failure(message: "无法读取 PDF。请检查文件是否完整，或先解除密码保护。")
-            }
-            pages = (0..<doc.pageCount).map { index in
-                let text = doc.page(at: index)?.string ?? ""
-                return clean(text.replacingOccurrences(of: #"(?<=[\p{Han}\p{Hiragana}\p{Katakana}、])\h*\n\h*(?=[\p{Han}\p{Hiragana}\p{Katakana}])"#, with: "", options: .regularExpression))
-            }
+            pages = try await Task.detached(priority: .userInitiated) { try readPDF(url) }.value
         case "EPUB", "MOBI":
-            pages = paginate(try convert(url))
+            pages = paginate(try await EbookImport.read(url, resources: ebookResources, timeout: timeout).joined(separator: "\n\n"))
         default:
             throw Failure(message: "请选择 PDF、EPUB 或 MOBI 文件。")
         }
+        try Task.checkCancellation()
         guard pages.contains(where: { !$0.isEmpty }) else {
             throw Failure(message: "文件中没有可提取的文字。扫描版 PDF 需要先进行 OCR。")
         }
         return Book(name: url.lastPathComponent, kind: kind, pages: pages)
     }
 
+    private static func readPDF(_ url: URL) throws -> [String] {
+        guard let doc = PDFDocument(url: url), !doc.isLocked else {
+            throw Failure(message: "无法读取 PDF。请检查文件是否完整，或先解除密码保护。")
+        }
+        return (0..<doc.pageCount).map { index in
+            let text = doc.page(at: index)?.string ?? ""
+            return clean(text.replacingOccurrences(of: #"(?<=[\p{Han}\p{Hiragana}\p{Katakana}、])\h*\n\h*(?=[\p{Han}\p{Hiragana}\p{Katakana}])"#, with: "", options: .regularExpression))
+        }
+    }
+
     private static func clean(_ text: String) -> String {
         text.replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private static func convert(_ url: URL) throws -> String {
-        let apps = [URL(fileURLWithPath: "/Applications/calibre.app"), FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/calibre.app")]
-        guard let executable = apps.map({ $0.appendingPathComponent("Contents/MacOS/ebook-convert") })
-            .first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
-            throw Failure(message: "导入 EPUB 和 MOBI 需要 calibre。请将 calibre.app 安装到「应用程序」后重试。")
-        }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("yomitoki-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let output = folder.appendingPathComponent("reading.txt")
-        let process = Process()
-        process.executableURL = executable
-        process.arguments = [url.path, output.path, "--txt-output-formatting", "plain", "--max-line-length", "0", "--txt-output-encoding", "utf-8", "--newline", "unix"]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        var environment = ProcessInfo.processInfo.environment
-        environment["CALIBRE_CONFIG_DIRECTORY"] = folder.path
-        process.environment = environment
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw Failure(message: "calibre 无法读取这本书。请检查文件是否损坏或受 DRM 保护。")
-        }
-        return clean(try String(contentsOf: output, encoding: .utf8))
     }
 
     private static func paginate(_ text: String) -> [String] {

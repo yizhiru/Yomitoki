@@ -10,20 +10,24 @@
 
 从 [GitHub Releases](https://github.com/yizhiru/Yomitoki/releases) 下载最新版本。0.1.1 预编译安装包为 `Yomitoki-0.1.1-macos-arm64.zip`，适用于 Apple Silicon Mac，需要 macOS 14 或更新版本。解压后将「读解.app」拖入「应用程序」即可。发布页提供 `SHA256SUMS.txt`，可用 `shasum -a 256 -c SHA256SUMS.txt` 校验下载文件。
 
-当前安装包采用本地 ad-hoc 签名，未经 Apple 公证。若 macOS 阻止启动，可在确认下载来源后，按系统提示前往「系统设置 → 隐私与安全性」允许打开。离线词典和翻译引擎已随 App 提供；本地翻译模型由用户自行下载。EPUB 和 MOBI 导入需要安装 calibre。功能与安装说明详见[更新记录](../CHANGELOG.md)。
+当前安装包采用本地 ad-hoc 签名，未经 Apple 公证。若 macOS 阻止启动，可在确认下载来源后，按系统提示前往「系统设置 → 隐私与安全性」允许打开。离线词典和翻译引擎已随 App 提供；本地翻译模型由用户自行下载。本次源码构建已内置 Foliate，EPUB 和 MOBI 导入无需 Calibre、Node.js 或 Python；旧的正式 0.1.1 发布包仍使用 Calibre。功能与安装说明详见[更新记录](../CHANGELOG.md)。
 
 ## 导入格式
 
 | 格式 | 读取方式 | 适用范围 |
 | --- | --- | --- |
 | PDF | 应用直接调用 macOS 的 PDFKit | 有文字层的 PDF。纯扫描件需要先做 OCR |
-| EPUB、MOBI | 应用调用本机 [calibre](https://calibre-ebook.com/) 的 `ebook-convert` | 无 DRM 的电子书。calibre 需位于系统或用户的「应用程序」目录 |
+| EPUB、MOBI | App 内置 Foliate 模块，由系统 WebKit 在独立进程中提取正文 | 无 DRM 的 EPUB 2/3、MOBI 6、KF8 和混合 MOBI；按文字阅读，不保留原书版式 |
 
 阅读区显示提取并重排后的文字。PDF 保留原页码，EPUB 和 MOBI 按正文段落分节。词典离线可查，常用词有中文释义，广覆盖词典使用 [JMdict](https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html) 的英文释义。书架、进度和生词本保存在本机的 `~/Library/Application Support/Bunmyaku/library.json`。
 
 界面采用白色主区域、浅灰侧栏与统一的灰蓝强调色，减少装饰标题和重复入口，统一使用系统无衬线字体。侧栏「书架」右侧的「导入」可导入文件。界面文字主要为 13–15 号，阅读正文默认 26 号，释义默认 20 号；正文仍可用阅读区右上角菜单调整，释义可在「设置 → 阅读显示」调整，已手动保存的释义字号会保留。生词本、对话、分析、翻译、设置与导出窗口使用同一套样式。
 
 在「设置 → 阅读显示」中可切换「单击自动查词」，默认关闭，调整后即时生效并自动保存。关闭时，单击、双击或拖选都不会自动查询；选中文字后点击查询按钮才会查询。开启后，单击正文词语会自动查询离线词典，仍不会自动请求大模型或翻译。
+
+导入 EPUB / MOBI 时显示读取状态，可点击「取消导入」；切换书籍或进入生词本也会取消当前导入。30 秒未完成会提示超时，失败或取消不会改动书架。已保存的旧书和生词位置不自动重算，新导入的节划分可能与 Calibre 不同。
+
+解析器仅加载 App 内的可信脚本，书内 HTML 不进入阅读界面，不执行书内脚本，也不加载书内远程资源。支持常见日文注音清理、编码和章节顺序；DRM 正文、ZIP64 EPUB 和超限文件会明确拒绝。单文件最多 300 MB，EPUB 解压总量最多 128 MB、单条目 32 MB、条目数 10000，提取正文最多 1000 万 UTF-16 单位。
 
 正文使用普通文本，双击按 macOS 的规则选词，拖选可精确选择部分词、短语或整句，不会被查词分词覆盖。悬浮工具条按选文级别只显示对应功能：单词级显示「词典释义」「大模型释义」；句子级显示「本地翻译」「长句分析」；段落级显示「本地翻译」。所有有效选文均提供「大模型对话」。单句优先按句子级处理，多句或跨段选择按段落级处理。空白、标点或无效选区不显示菜单。工具条不抢走正文的键盘焦点；按 ⌘C 或使用右键菜单复制实际选中的原文。阅读区右上角与调用入口同步遵循级别限制。保存设置不会自动请求大模型。
 
@@ -125,6 +129,7 @@ open "dist/读解.app"
 ## 源码
 
 - `Sources/Core.swift` 负责文件导入、日语分词、词典查询及原句提取。
+- `Sources/EbookImport.swift` 负责独立 WebKit 解析、取消、超时及 App 内资源白名单；`scripts/bundle_ebooks.py` 复用 Windows 的固定版本 Foliate / fflate 模块并打包许可证。
 - `Sources/ModelDefinitions.swift` 负责释义配置、钥匙串存取及 OpenAI 兼容模型调用。
 - `Sources/LocalTranslation.swift` 负责按需下载与校验模型、本机引擎进程管理、选文翻译和独立缓存。
 - `Sources/TranslationSelection.swift` 负责按原文句段边界判断选文是否可以翻译。
@@ -142,3 +147,18 @@ open "dist/读解.app"
 更新英文词典时，从 [jmdict-simplified Releases](https://github.com/scriptin/jmdict-simplified/releases) 取得新的英文 JSON 压缩包，更新 `scripts/build.sh` 中的版本和 SHA-256，并同步更新 `Resources/Dictionary/SOURCES.txt`。重新运行构建脚本即可生成新索引。衍生词典数据采用 CC BY-SA 4.0，许可和署名随应用分发。
 
 运行 `./scripts/test.sh` 可检查模型请求格式、响应解析、错误处理、设置持久化、词形归一、缓存命中及重启读取、旧版生词本合并与精简存储、选词释义和生词导出。本地翻译测试检查精确选文、模型校验、译文缓存与重启、取消与过期结果、上下文限制，并用小型模拟引擎实际启动进程和本机 HTTP 服务。测试不下载模型，不评估真实模型的翻译质量。
+
+
+## 内置电子书兼容性回归
+
+```sh
+bash scripts/build.sh
+bash scripts/test.sh
+bash scripts/test_ebooks.sh
+python3 scripts/verify_ebooks.py
+python3 scripts/verify_runtime.py
+```
+
+电子书回归用真实系统 WebKit 执行解析，并使用 macOS Seatbelt 禁止访问系统及用户目录中的 Calibre，同时将 PATH 限制为系统目录。先测试构建包资源，再将签名测试 App 移到含空格、日文的路径，使用 `Bundle.main` 自动定位资源重跑。测试 App 的主程序是同一生产源码编译的回归入口；最终生产 App 另做启动、签名及运行依赖检查，不宣称已经自动点击完整的 SwiftUI 界面。
+
+两轮各覆盖 25 个固定样本（20 个正常、5 个预期拒绝），以及查词、生词保存、阅读进度、重启恢复、重复导入、提前/运行中取消、导航取消、超时、缺失资源、失败后恢复和 PDF。旧版 WebKit 缺少分组方法的情况使用精确兼容脚本在 JavaScriptCore 中模拟验证。当前实测环境为 Apple Silicon、macOS 27.2；没有在 macOS 14 真机或 Intel Mac 上运行本轮测试。记录见 [macOS 回归结果](macos-ebook-regression.json) 与 [方案比较](epub-mobi-compatibility.md)。

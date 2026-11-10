@@ -1,5 +1,11 @@
 # 更新记录
 
+## 未发布
+
+- Windows 和 macOS 内置 Foliate EPUB / MOBI 导入，不再依赖 Calibre。
+- macOS 增加导入取消、超时及失败后重试，保留旧书架与生词位置。
+- 两端使用相同解析模块和固定样本；macOS 覆盖真实 WebKit、可移动签名测试 App、Calibre 禁用环境及旧版 WebKit 分组方法兼容。
+
 ## 0.1.1
 
 - Windows 本地翻译新增 Vulkan GPU 引擎、显卡检测与「自动 / GPU / CPU」选项。

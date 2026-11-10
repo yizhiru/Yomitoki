@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
     @Published private(set) var cacheWarning: String?
     @Published var inNotebook = false {
         didSet {
-            if inNotebook { translation.clear(); sentenceAnalysis.clear(); modelChat.dismiss() }
+            if inNotebook { cancelImport(); translation.clear(); sentenceAnalysis.clear(); modelChat.dismiss() }
             if inNotebook { textSelection = nil }
             if inNotebook && querying {
                 cancelLookup()
@@ -21,7 +21,8 @@ import UniformTypeIdentifiers
         }
     }
     @Published var selectedWord: String?
-    @Published var importing = false
+    @Published private(set) var importing = false
+    private var importTask: Task<Void, Never>?
     @Published var search = ""
     @Published var fontSize: CGFloat = 26
     @Published var failure: String?
@@ -115,6 +116,7 @@ import UniformTypeIdentifiers
         }
     }
     func openBook(_ id: UUID, page: Int? = nil) {
+        cancelImport()
         guard let index = library.books.firstIndex(where: { $0.id == id }) else { return }
         var candidate = library
         candidate.current = id
@@ -322,10 +324,17 @@ import UniformTypeIdentifiers
         panel.allowedContentTypes = ["pdf", "epub", "mobi"].compactMap { UTType(filenameExtension: $0, conformingTo: .data) }
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        importBook(url)
+    }
+    func cancelImport() { importTask?.cancel() }
+    func importBook(_ url: URL, ebookResources: URL? = nil) {
+        guard !importing else { return }
         importing = true
-        Task {
+        importTask = Task {
+            defer { importing = false; importTask = nil }
             do {
-                let new = try await Task.detached(priority: .userInitiated) { try BookImport.read(url) }.value
+                let new = try await BookImport.read(url, ebookResources: ebookResources)
+                try Task.checkCancellation()
                 var candidate = library
                 let existing = candidate.books.first { $0.name == new.name && $0.pages == new.pages }
                 if existing == nil { candidate.books.append(new) }
@@ -339,8 +348,9 @@ import UniformTypeIdentifiers
                     inNotebook = false
                     refreshTokens()
                 }
+            } catch is CancellationError {
+                // Cancellation preserves the current book and all saved data.
             } catch { failure = error.localizedDescription }
-            importing = false
         }
     }
 }
