@@ -1,0 +1,20 @@
+{
+  "foliate": {
+    "source": "https://github.com/johnfactotum/foliate-js",
+    "revision": "78914aef4466eb960965702401634c2cb348e9b1",
+    "license": "MIT"
+  },
+  "fflate": {
+    "source": "https://www.npmjs.com/package/fflate/v/0.8.3",
+    "version": "0.8.3",
+    "license": "MIT"
+  },
+  "files": {
+    "fflate/LICENSE": "0a1df3a083d0c010560aa342e87959c8c1070e6fd54545741f083f22d0c8b551",
+    "fflate/fflate.mjs": "b7ca4450b19559a1d50eb381adcee94b82449674be4cd17789d9beba7e6122a1",
+    "foliate/LICENSE": "b621ffc351fe263bc9b09dd0bc1c9332fda9c462a3904c1e4f0b4d3236b9c28c",
+    "foliate/epub.js": "dfe347495039e9b5991478986ec6b7713cf9efbcd8f475a77ef7b967c5176298",
+    "foliate/epubcfi.js": "e1a688ad5c84bf31f33cef467f92c7a6d060a0f17ec37c1d3c048e9c7b1cf645",
+    "foliate/mobi.js": "016526df13a9f11ee6671a8c74346e1cf41fe6bdfe50165fdcbf744f015694f3"
+  }
+}

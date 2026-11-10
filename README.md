@@ -28,7 +28,7 @@ macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安�
 
 ## 开始使用
 
-1. **导入书籍**：PDF 需有文字层；EPUB / MOBI 需安装 [calibre](https://calibre-ebook.com/)，不支持 DRM 文件。
+1. **导入书籍**：PDF 需有文字层；Windows 版已内置 EPUB / MOBI 正文解析；macOS 版仍需安装 [calibre](https://calibre-ebook.com/)。两端都不支持 DRM 正文。
 2. **选中文字**：单词显示两种释义，完整句子显示翻译与长句分析，段落显示翻译；有效选区均可打开对话。单击自动查词默认关闭，复制使用系统快捷键。
 3. **配置模型（可选）**：在「设置」填写 DeepSeek 或 OpenAI 兼容接口和自己的 API key；本地翻译需手动下载或选择约 1.13 GB 的 Q4 模型，支持 HF 镜像与 ModelScope。
 

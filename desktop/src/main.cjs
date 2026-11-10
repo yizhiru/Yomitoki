@@ -12,7 +12,7 @@ const { LocalEngine, MODEL, validateModel, downloadModel } = require('./translat
 app.setName('Yomitoki');
 if (process.platform === 'win32') app.setAppUserModelId('org.yizhiru.yomitoki');
 if (process.env.YOMITOKI_DATA_DIRECTORY) app.setPath('userData', process.env.YOMITOKI_DATA_DIRECTORY);
-let window, store, dictionary, engine, ready, request, download, generation = 0, lastLookup, quitting = false;
+let window, store, dictionary, engine, ready, request, download, generation = 0, lastLookup, importing, quitting = false;
 const entryFile = path.join(__dirname, 'renderer/index.html');
 const resources = () => app.isPackaged ? path.join(process.resourcesPath, 'reading') : path.join(__dirname, '../.build/resources');
 const state = () => ({ ...store.publicState(), version: app.getVersion(), platform: process.platform, translationRuntime: engine.status() });
@@ -128,13 +128,24 @@ async function dispatch(action, input = {}) {
     case 'settings': return saveSettings(input);
     case 'detect-gpu': return engine.detect(true);
     case 'import': {
-      const result = await dialog.showOpenDialog(window, { title: '导入日语文档', properties: ['openFile'], filters: [{ name: '阅读文档', extensions: ['pdf', 'epub', 'mobi', 'txt'] }] });
-      if (result.canceled) return null;
-      const book = await readBook(result.filePaths[0]); cancel();
-      store.change(data => { data.books.push(book); data.current = book.id; });
-      return state();
+      if (importing) throw new Error('已有文档正在导入，请等待或取消。');
+      const controller = new AbortController(); importing = controller;
+      try {
+        const result = await dialog.showOpenDialog(window, { title: '导入日语文档', properties: ['openFile'], filters: [{ name: '阅读文档', extensions: ['pdf', 'epub', 'mobi', 'txt'] }] });
+        if (result.canceled) return null;
+        controller.signal.throwIfAborted();
+        const book = await readBook(result.filePaths[0], { signal: controller.signal, parent: window });
+        controller.signal.throwIfAborted(); cancel(); lastLookup = null;
+        store.change(data => { data.books.push(book); data.current = book.id; });
+        return state();
+      } catch (error) {
+        if (controller.signal.aborted) throw new Error('已取消导入。');
+        throw error;
+      } finally { if (importing === controller) importing = null; }
     }
+    case 'cancel-import': importing?.abort(); return true;
     case 'navigate': {
+      importing?.abort();
       const book = store.data.books.find(book => book.id === input.bookID);
       if (!book || !Number.isInteger(input.page) || input.page < 0 || input.page >= book.pages.length) throw new Error('阅读位置无效。');
       cancel(); lastLookup = null;
@@ -228,6 +239,6 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => app.quit());
 app.on('before-quit', event => {
   if (quitting) return;
-  event.preventDefault(); quitting = true; cancel(); download?.abort();
+  event.preventDefault(); quitting = true; cancel(); importing?.abort(); download?.abort();
   Promise.resolve(engine?.stop()).finally(() => app.exit(0));
 });

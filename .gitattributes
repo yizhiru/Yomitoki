@@ -1,0 +1,3 @@
+# Vendored source and fixture checksums are byte-exact on Windows as well.
+desktop/src/vendor/** -text
+desktop/tests/fixtures/ebooks/** -text

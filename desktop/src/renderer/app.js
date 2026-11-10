@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id);
 const api = window.yomitoki;
+let importing = false;
 let state, view = 'reading', selection, chatSelection, messages = [], questionDraft = '', result, busy = false, uiGeneration = 0, noticeTimer;
 function element(tag, text, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; }
 function notice(text) { $('status').textContent = text; $('status').style.display = 'block'; clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('status').style.display = 'none'; }, 5500); }
@@ -34,7 +35,16 @@ async function navigate(bookID, page) {
   cancelQuery(); selection = null; $('selection-toolbar').hidden = true; clearDetail(); view = 'reading';
   sync(await api.call('navigate', { bookID, page }));
 }
-async function importBook() { const next = await api.call('import'); if (next) { cancelQuery(); view = 'reading'; selection = null; clearDetail(); sync(next); } }
+async function importBook() {
+  if (importing) return;
+  importing = true; $('import').disabled = true; $('import').textContent = '正在导入…'; $('cancel-import').hidden = false;
+  try {
+    const next = await api.call('import');
+    if (next) { cancelQuery(); view = 'reading'; selection = null; clearDetail(); sync(next); }
+  } finally {
+    importing = false; $('import').disabled = false; $('import').textContent = '导入'; $('cancel-import').hidden = true;
+  }
+}
 function section(title, text, className) {
   const wrapper = element('section'); wrapper.append(element('h3', title), element(className === 'diagram' ? 'pre' : 'p', text, className)); return wrapper;
 }
@@ -253,6 +263,7 @@ function splitter(id, key, direction, min, max) {
   handle.addEventListener('keydown', event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); const next = Math.max(min, Math.min(max, state.settings[key] + direction * (event.key === 'ArrowRight' ? 10 : -10))); attempt(async () => sync(await api.call('settings', { [key]: next }))); } });
 }
 splitter('sidebar-split', 'sidebarWidth', 1, 160, 400); splitter('detail-split', 'detailWidth', -1, 260, 800);
+$('cancel-import').addEventListener('click', () => attempt(() => api.call('cancel-import')));
 $('import').addEventListener('click', () => attempt(importBook)); api.onImport(() => attempt(importBook));
 $('previous').addEventListener('click', () => attempt(() => navigate(currentBook().id, currentBook().page - 1)));
 $('next').addEventListener('click', () => attempt(() => navigate(currentBook().id, currentBook().page + 1)));

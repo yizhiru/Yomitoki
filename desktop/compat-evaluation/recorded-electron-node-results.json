@@ -1,0 +1,191 @@
+[
+  {
+    "id": "epub2-spine-order",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "2b10cd4a3e36720601496921e65a10d763a8060dacc2b306fc411c4b1651a18e"
+  },
+  {
+    "id": "epub3-japanese-ruby",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b"
+  },
+  {
+    "id": "epub3-encoded-path-unicode",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "id": "epub2-windows1252",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "648dc0086a5de848e2e01026f481b9f8bb71f7d1e863ebdee7bd7d5d21aee25c"
+  },
+  {
+    "id": "epub3-hidden-and-script",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "862774635c91f8f778f6fcafb67a3c0725dfc8078c31b21b27823ded86b5132c"
+  },
+  {
+    "id": "epub3-ruby-many-chapters",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "e07cbbf392c620f49c5d254495b1d87562382ee8d61d06c180b41f6e37b7c28f"
+  },
+  {
+    "id": "mobi6-japanese",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf"
+  },
+  {
+    "id": "mobi6-uncompressed",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf"
+  },
+  {
+    "id": "mobi8-japanese",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b"
+  },
+  {
+    "id": "mobi-combo-japanese",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b"
+  },
+  {
+    "id": "mobi6-latin",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "98fa3877bb08ed1f67eb1887058bfd417b3e5a429e5b221776138e1061060ec6"
+  },
+  {
+    "id": "upstream-alice-ori",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "7253f82b1627b07330295af13075ef7aaa47d73fe7d63383e87872f54029d4ba"
+  },
+  {
+    "id": "upstream-alice-corner-case",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "7253f82b1627b07330295af13075ef7aaa47d73fe7d63383e87872f54029d4ba"
+  },
+  {
+    "id": "upstream-Alices-Adventures",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "265f4591f4894c638a1e012118560476277f6a541b8ca05efacca90125ce39b6"
+  },
+  {
+    "id": "upstream-sample-mobi-files-Around-the-World",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "b5155a7d4d729a16017f2ed78858589f50f397d9ecd1d5a10e017f94632e00a4"
+  },
+  {
+    "id": "upstream-mobiLang",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "22e9c7f5b38f9104d56f4f0467617686ebbcbee99709298f3a6b81da94f1eda3"
+  },
+  {
+    "id": "unicode-filename",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b"
+  },
+  {
+    "id": "corrupt-epub",
+    "ok": false,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "id": "corrupt-mobi",
+    "ok": false,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "id": "drm-flag-mobi",
+    "ok": false,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "id": "mobi6-spine-order",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "450ec1dd37b9603c5cd486c31dae3d91f1de4101983a48cd68a1da91a840424d"
+  },
+  {
+    "id": "mobi8-spine-order",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "3c5c414619d2a0d5f509b724ed04bc2efe69f7872a046b704ff9b171ab81b03f"
+  },
+  {
+    "id": "mobi6-windows1252",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "0bff8cec765407c9abe5f685237f48d1f7ce0c85c144db8b95fcbbeeffa71b15"
+  },
+  {
+    "id": "independent-testbook",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "0063a40dd4033feb07922bdab9fc997b79b8679be620ea1415958c9d7187bcd2"
+  },
+  {
+    "id": "independent-testbook-images",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "a9a750825bde5e10964958e3489ccf4bd246df9db5a52d5e6aa2add950553da3"
+  },
+  {
+    "id": "mobi6-huff-literal",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070"
+  },
+  {
+    "id": "mobi6-huff-recursive",
+    "ok": true,
+    "matches_node26_status": true,
+    "matches_node26_text": true,
+    "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070"
+  }
+]

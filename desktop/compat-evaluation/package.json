@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@lingo-reader/epub-parser": "0.4.6",
+    "@lingo-reader/mobi-parser": "0.4.6",
+    "htmlparser2": "10.0.0",
+    "fflate": "0.8.3"
+  },
+  "name": "yomitoki-import-compat-evaluation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Isolated EPUB/MOBI parser comparison; not part of the application build"
+}

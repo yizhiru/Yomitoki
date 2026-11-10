@@ -1,0 +1,197 @@
+[
+  {
+    "id": "epub2-spine-order",
+    "file": "epub2-spine-order.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "第1章\nORDER1：朝、私は駅へ歩いた。\n\n第2章\nORDER2：昼、喫茶店で本を読んだ。\n\n第3章\nORDER3：夜、家に帰った。",
+    "sha256": "e9ab7a9fffdbb01ad11af82afb32e3f73e989bd0f9c635ad6e453426adc9c973"
+  },
+  {
+    "id": "epub3-japanese-ruby",
+    "file": "epub3-japanese-ruby.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "fd20dcd64c79489e4ddb0862529fc1ec0a48a82c96bebe94c7c5e69ea29316c9"
+  },
+  {
+    "id": "epub3-encoded-path-unicode",
+    "file": "epub3-encoded-path-unicode.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "道と名前\nUNICODE_START 𠮷野さんは「café Müller」で𩸽を注文した。A&B <C> ① Ａ UNICODE_END",
+    "sha256": "cb5555d76da1739960c5e376aff89cae9004473a5bd811fd187e05c34bc75f02"
+  },
+  {
+    "id": "epub2-windows1252",
+    "file": "epub2-windows1252.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "Encodage\nLATIN_START café Müller — naïve “résumé” LATIN_END",
+    "sha256": "11716d30df95fe5943f748ce484053900da72f6da7cb91d82805f98974e4314a"
+  },
+  {
+    "id": "epub3-hidden-and-script",
+    "file": "epub3-hidden-and-script.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "可視本文\nVISIBLE_START 読むべき本文。終わり。VISIBLE_END",
+    "sha256": "f05d629c8cbbff87b70e787fe68259b9c1eef85c98fdd5a8f3610a34ce12dcd2"
+  },
+  {
+    "id": "epub3-ruby-many-chapters",
+    "file": "epub3-ruby-many-chapters.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "long": true,
+    "sha256": "ebd4719db5ef471234005914b556f516e3dac7c16b97f0b17f938595542d559d"
+  },
+  {
+    "id": "mobi6-japanese",
+    "file": "mobi6-japanese.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "日本語の読書\n\n\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店（きっさてん）に入った。\n\n東京とうきょうで本ほんを読む。JPEND\n\n\n\nTable of Contents\n\nChapter 1\n\n\n\n\n\n",
+    "sha256": "08dd23e4e8cb1ff66231f781964a994c136a4387daf256c7de3412bdb8a10124"
+  },
+  {
+    "id": "mobi6-uncompressed",
+    "file": "mobi6-uncompressed.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "日本語の読書\n\n\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店（きっさてん）に入った。\n\n東京とうきょうで本ほんを読む。JPEND\n\n\n\nTable of Contents\n\nChapter 1\n\n\n\n\n\n",
+    "sha256": "0ad05d988067f7a68f5aa13478579b1744d9d599bb98142260edfe4efa6a60e2"
+  },
+  {
+    "id": "mobi8-japanese",
+    "file": "mobi8-japanese.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "ec6ae075ea8e6fa284fd181077fd4e8dddbd968c0f01186416ff550ea8e33862"
+  },
+  {
+    "id": "mobi-combo-japanese",
+    "file": "mobi-combo-japanese.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "3c58de641ba5d4c8c71b943833b835f78942638b03622b54787bf3d815d3caa0"
+  },
+  {
+    "id": "mobi6-latin",
+    "file": "mobi6-latin.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "Encodage\nLATIN_START café Müller — naïve “résumé” LATIN_END",
+    "sha256": "0d5bfa93c8b4ccfe09d35363b5e1a5426919def7c22bffe1636f205559875bf9"
+  },
+  {
+    "id": "unicode-filename",
+    "file": "日本語の本 空白.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "fd20dcd64c79489e4ddb0862529fc1ec0a48a82c96bebe94c7c5e69ea29316c9"
+  },
+  {
+    "id": "corrupt-epub",
+    "file": "corrupt.epub",
+    "kind": "EPUB",
+    "reject": true,
+    "sha256": "1d7d17bb59b9d484c20be8ba8a766d1c4397721ade8ab3fffc38817650e154ba"
+  },
+  {
+    "id": "corrupt-mobi",
+    "file": "corrupt.mobi",
+    "kind": "MOBI",
+    "reject": true,
+    "sha256": "7aeee507bd2ae2262fac7e0c994ccefc75f6eae30db840628fabb75f83e60539"
+  },
+  {
+    "id": "drm-flag-mobi",
+    "file": "drm-flag.mobi",
+    "kind": "MOBI",
+    "reject": true,
+    "sha256": "1ff361f941edd7eb4f1dd276d7d11d2c0ff025305b2be1ed2090fbb5379687a6"
+  },
+  {
+    "id": "mobi6-spine-order",
+    "file": "mobi6-spine-order.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "第1章\nORDER1：朝、私は駅へ歩いた。\n\n第2章\nORDER2：昼、喫茶店で本を読んだ。\n\n第3章\nORDER3：夜、家に帰った。",
+    "sha256": "6b43e8271e929c4a51fef5cb871808b41af85f90096d6ecf12e68a48436a1528"
+  },
+  {
+    "id": "mobi8-spine-order",
+    "file": "mobi8-spine-order.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "第1章\nORDER1：朝、私は駅へ歩いた。\n\n第2章\nORDER2：昼、喫茶店で本を読んだ。\n\n第3章\nORDER3：夜、家に帰った。",
+    "sha256": "21c1c737c3ff7846b6d630854e56b317156da07e1d133632e8199f984bd1053f"
+  },
+  {
+    "id": "mobi6-windows1252",
+    "file": "mobi6-windows1252.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "Encodage\nLATIN_START café Müller — naïve “résumé” LATIN_END",
+    "sha256": "82ba15e98f68857fc346f697ef35edf74f08ce766c1e44a7087938f015bcc85b"
+  },
+  {
+    "id": "mobi6-huff-literal",
+    "file": "mobi6-huff-literal.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "HUFF_START 私は静かな喫茶店で本を読んだ。 ALPHA_BETA HUFF_END",
+    "sha256": "ee95b9532e431a2c82023e4d3661c6f79b74f1e8cb08171e94480e0b77a67442"
+  },
+  {
+    "id": "mobi6-huff-recursive",
+    "file": "mobi6-huff-recursive.mobi",
+    "kind": "MOBI",
+    "reject": false,
+    "expected": "HUFF_START 私は静かな喫茶店で本を読んだ。 ALPHA_BETA HUFF_END",
+    "sha256": "22b05037c0582a3891cadae117df1bea006eff6d02b44e116b84c4f21a22690b"
+  },
+  {
+    "id": "epub3-utf16le",
+    "file": "epub3-utf16le.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "6f552086e158ea228280bfb693a4378836f9f81feb105a2efa025896b6dd437f"
+  },
+  {
+    "id": "epub3-utf16be",
+    "file": "epub3-utf16be.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "344737e68fff2eae472880705d883ab0f39a8d633e0c498c361a6691c6500660"
+  },
+  {
+    "id": "epub3-font-obfuscation",
+    "file": "epub3-font-obfuscation.epub",
+    "kind": "EPUB",
+    "reject": false,
+    "expected": "日本語の読書\nJPSTART 雨が上がったので、傘を閉じて小さな喫茶店に入った。\n東京で本を読む。JPEND",
+    "sha256": "f3ff030ab3c6cc9c838414549403df1d645d5f83cbb4308308f17209c5a77788"
+  },
+  {
+    "id": "epub3-encrypted-body",
+    "file": "epub3-encrypted-body.epub",
+    "kind": "EPUB",
+    "reject": true,
+    "sha256": "367f86340fe9bc7c3e313cb5b76e3039d83ce2b5fabede706007afd5e9990780"
+  },
+  {
+    "id": "epub3-oversize-directory",
+    "file": "epub3-oversize-directory.epub",
+    "kind": "EPUB",
+    "reject": true,
+    "sha256": "b67561f1ce59cbdd004378a136dae9b415724ee43b8882e7c201e605f8ee0953"
+  }
+]

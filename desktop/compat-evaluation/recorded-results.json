@@ -1,0 +1,1704 @@
+{
+  "date": "2026-11-09",
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "versions": {
+    "calibre": "9.3.1",
+    "lingo_epub": "0.4.6",
+    "lingo_mobi": "0.4.6",
+    "htmlparser2": "10.0.0",
+    "foliate_revision": "78914aef4466eb960965702401634c2cb348e9b1",
+    "node": "26.8.1",
+    "electron": "45.2.3",
+    "electron_node": "24.22.2",
+    "fflate": "0.8.3"
+  },
+  "conditions": {
+    "calibre": "exact current imports.cjs TXT conversion flags",
+    "lingo": "ESM Node adapter + htmlparser2 text extraction, ruby and inline-hidden removal",
+    "foliate": "sandboxed Electron DOM parser + custom encoding/path loader + CSS/HTML text extraction + encryption flag guard",
+    "oracle": "self-authored expected body blocks, excluding whitespace; lossy MOBI6 ruby controls are diagnostic only",
+    "upstream_check": "40 evenly distributed 64-character paragraph anchors per public book, plus order checks",
+    "windows_execution": false
+  },
+  "cases": [
+    {
+      "id": "epub2-spine-order",
+      "file": "epub2-spine-order.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 3508,
+      "sha256": "22e720a9b02a859d3f5e23a3807fb5b56f610ffe1dc61be8ee172ddf15fe00a3",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 541.19,
+          "characters": 87,
+          "replacement_characters": 0,
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "da9a768057e774ed71d6a67b87534d53593a268380b059ae072e8136962dc41a",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 3,
+          "rawCharacters": 108,
+          "milliseconds": 16.204416999999978,
+          "characters": 70,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "2b10cd4a3e36720601496921e65a10d763a8060dacc2b306fc411c4b1651a18e",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 3,
+          "milliseconds": 4.699999999254942,
+          "characters": 70,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "2b10cd4a3e36720601496921e65a10d763a8060dacc2b306fc411c4b1651a18e",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "epub3-japanese-ruby",
+      "file": "epub3-japanese-ruby.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 2546,
+      "sha256": "8d332992f0facd5c246bb3cd1e394020be90892e66488416b52d5d82ce39da64",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 313.92,
+          "characters": 77,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "700e4c5465945ccd4b33d6f24a98f30c04ebb124b21e413e1e64b7211a5ae5fd",
+          "check_passed": false
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 182,
+          "milliseconds": 8.364083999999998,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 1.200000001117587,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "epub3-encoded-path-unicode",
+      "file": "epub3-encoded-path-unicode.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 2709,
+      "sha256": "d5459ae154754e9d49af24fb549f34b7fa770b23ab212627146aab7a77a86b61",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 306.57,
+          "characters": 76,
+          "replacement_characters": 0,
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "7496747109a2bdc2e406c069813f30e59e56eb19bbeefa15ad3732a980788d1b",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 0,
+          "milliseconds": 7.607208,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "required_blocks_found": 0,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 0.8000000007450581,
+          "characters": 69,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "1300fba2fd4068813a387adeeb932dd864613dec8b16d74ed9eece61977ff3bb",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "epub2-windows1252",
+      "file": "epub2-windows1252.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 2388,
+      "sha256": "3b993f7c261ca0ddb0eeeba69176c7fad404deffbc54d5ea9690ef06ba68af4c",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 388.17,
+          "characters": 67,
+          "replacement_characters": 0,
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "c715f92c05bf23b6ff00174c14435621ae28391f4fb1178af4fbc32d84bc7e8c",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 73,
+          "milliseconds": 8.596000000000004,
+          "characters": 59,
+          "nonempty": true,
+          "replacement_characters": 7,
+          "text_sha256": "648dc0086a5de848e2e01026f481b9f8bb71f7d1e863ebdee7bd7d5d21aee25c",
+          "required_blocks_found": 1,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 0.599999999627471,
+          "characters": 60,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "0bff8cec765407c9abe5f685237f48d1f7ce0c85c144db8b95fcbbeeffa71b15",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "epub3-hidden-and-script",
+      "file": "epub3-hidden-and-script.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 2586,
+      "sha256": "5228e42444e80149dfcba4ebfeedcf082e7512e19832a43ea0214d24debce107",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 485.04,
+          "characters": 66,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 2,
+          "missing_blocks": [
+            "VISIBLE_START読むべき本文。終わり。VISIBLE_END"
+          ],
+          "ruby_readings_present": [],
+          "noise_markers": [
+            "HIDDEN_ATTR_PROBE"
+          ],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "b21e9140f755991ba0fdc60139b6b7c57c4f6899cd7cb02c5dbc972e6d079509",
+          "check_passed": false
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 289,
+          "milliseconds": 9.277500000000003,
+          "characters": 58,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "862774635c91f8f778f6fcafb67a3c0725dfc8078c31b21b27823ded86b5132c",
+          "required_blocks_found": 1,
+          "required_blocks_total": 2,
+          "noise_markers": [
+            "HIDDEN_CSS_PROBE"
+          ],
+          "order_correct": true,
+          "check_passed": false
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 1.200000001117587,
+          "characters": 42,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "fad6931c890cfa158672207fd46964becedad3067b57ef00256d6e0ebc7dd54e",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "epub3-ruby-many-chapters",
+      "file": "epub3-ruby-many-chapters.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 23800,
+      "sha256": "d9659b3f616d7b5f8e548b55af8e78fa8441cc6beaf8717e21367d2b02eed8d6",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 401.56,
+          "characters": 158583,
+          "replacement_characters": 0,
+          "required_blocks_found": 60,
+          "required_blocks_total": 60,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "f0ac4b6f8ee25dfea22b4e510be8efed1dee19d0e5354e5314cb24c96157653f",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 30,
+          "rawCharacters": 158793,
+          "milliseconds": 21.3915,
+          "characters": 158431,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "e07cbbf392c620f49c5d254495b1d87562382ee8d61d06c180b41f6e37b7c28f",
+          "required_blocks_found": 60,
+          "required_blocks_total": 60,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 30,
+          "milliseconds": 10.299999998882413,
+          "characters": 158431,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "e07cbbf392c620f49c5d254495b1d87562382ee8d61d06c180b41f6e37b7c28f",
+          "required_blocks_found": 60,
+          "required_blocks_total": 60,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-japanese",
+      "file": "mobi6-japanese.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub3-japanese-ruby.epub",
+      "oracle_note": "Original EPUB ruby semantics were flattened by the MOBI6 encoder; diagnostic reference only, not a decoder defect.",
+      "diagnostic_only": true,
+      "has_oracle": true,
+      "bytes": 9966,
+      "sha256": "5c0fdb8acb0afa01e547edd9ad65baeb3eda146c98cbf3ce7dbb26affea39d2b",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 383.48,
+          "characters": 109,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "5d7df8255e84a0fce3e26b86553ba5d184a875a02445fbf3a8f7c2a67ad7977f",
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 9,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 3,
+          "rawCharacters": 386,
+          "milliseconds": 4.5149159999999995,
+          "characters": 102,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf",
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 3,
+          "milliseconds": 4.300000000745058,
+          "characters": 102,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf",
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-uncompressed",
+      "file": "mobi6-uncompressed.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub3-japanese-ruby.epub",
+      "oracle_note": "Original EPUB ruby semantics were flattened by the MOBI6 encoder; diagnostic reference only, not a decoder defect.",
+      "diagnostic_only": true,
+      "has_oracle": true,
+      "bytes": 10154,
+      "sha256": "ef64d1fd445a97d40c0fc8b4cbe8ad7d31b2a19bd285e05d0788bf9619bd51a4",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 383.46,
+          "characters": 109,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "5d7df8255e84a0fce3e26b86553ba5d184a875a02445fbf3a8f7c2a67ad7977f",
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 9,
+            "compression": 1,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 3,
+          "rawCharacters": 386,
+          "milliseconds": 5.133749999999999,
+          "characters": 102,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf",
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 3,
+          "milliseconds": 1.299999998882413,
+          "characters": 102,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "c639bc32f814b6a72f75a49676bddfd62b7ad8ecf4efdb8a8964bc7c785efcbf",
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": false,
+          "matches_calibre_encoded_text": true
+        }
+      }
+    },
+    {
+      "id": "mobi8-japanese",
+      "file": "mobi8-japanese.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub3-japanese-ruby.epub",
+      "has_oracle": true,
+      "bytes": 11416,
+      "sha256": "5945c0e6f1d504716b8036988bbbcdfd02d86fc4090aedd79273dfb356bbdffb",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 365.54,
+          "characters": 77,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "700e4c5465945ccd4b33d6f24a98f30c04ebb124b21e413e1e64b7211a5ae5fd",
+          "check_passed": false
+        },
+        "lingo": {
+          "ok": true,
+          "method": "kf8",
+          "info": {
+            "records": 15,
+            "compression": 2,
+            "encryption": 0,
+            "version": 8,
+            "encoding": 65001
+          },
+          "sections": 1,
+          "rawCharacters": 297,
+          "milliseconds": 4.658290999999998,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 2.699999999254942,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi-combo-japanese",
+      "file": "mobi-combo-japanese.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub3-japanese-ruby.epub",
+      "has_oracle": true,
+      "bytes": 21381,
+      "sha256": "e161ccb0b2a4c6fd3ab915717f1cac9cd9d89ae233255f2791a3cc3bc0db0586",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 366.82,
+          "characters": 77,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "700e4c5465945ccd4b33d6f24a98f30c04ebb124b21e413e1e64b7211a5ae5fd",
+          "check_passed": false
+        },
+        "lingo": {
+          "ok": true,
+          "method": "kf8",
+          "info": {
+            "records": 24,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001,
+            "boundary": 9
+          },
+          "sections": 1,
+          "rawCharacters": 297,
+          "milliseconds": 5.733416999999996,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 2.099999999627471,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-latin",
+      "file": "mobi6-latin.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub2-windows1252.epub",
+      "has_oracle": true,
+      "bytes": 9838,
+      "sha256": "ff57d0bd9fb34a59a022153aef138173bba536c57efdf75262823b6fb2de8e65",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 344.57,
+          "characters": 99,
+          "replacement_characters": 0,
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "db08ce73134aacea259034d54aaa5bc3c24db16ab253db2cce581b8bb9c9d637",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 9,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 3,
+          "rawCharacters": 346,
+          "milliseconds": 4.272166999999996,
+          "characters": 92,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "98fa3877bb08ed1f67eb1887058bfd417b3e5a429e5b221776138e1061060ec6",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 3,
+          "milliseconds": 1.199999999254942,
+          "characters": 92,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "98fa3877bb08ed1f67eb1887058bfd417b3e5a429e5b221776138e1061060ec6",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "upstream-alice-ori",
+      "file": "upstream-alice-ori.epub",
+      "kind": "EPUB",
+      "origin": "upstream-public-sample",
+      "source": "https://raw.githubusercontent.com/hhk-png/lingo-reader/720914c1339499761d82dc68077ab521f6dafb55/example/alice-ori.epub",
+      "sha256": "fe660e6f8a1e46df983a45f65233aedf138a68f60d6fc16e2952041c2fa17403",
+      "has_oracle": false,
+      "bytes": 539041,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 433.96,
+          "characters": 72084,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "a96e392170c15e9ec3b37756c2f3fd94e1eb04eac797ae3554bba36b8f3275a3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 88260,
+          "milliseconds": 42.560166,
+          "characters": 71693,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "7253f82b1627b07330295af13075ef7aaa47d73fe7d63383e87872f54029d4ba",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 17.899999998509884,
+          "characters": 71645,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "887a1e412d55192c183258aca8dd9a01ce6e6a06cb111566617789492958cbcd",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "upstream-alice-corner-case",
+      "file": "upstream-alice-corner-case.epub",
+      "kind": "EPUB",
+      "origin": "upstream-public-sample",
+      "source": "https://raw.githubusercontent.com/hhk-png/lingo-reader/720914c1339499761d82dc68077ab521f6dafb55/example/alice-corner-case.epub",
+      "sha256": "3206e518713169eeee7cd89f062cd466a70630cf67ce6d4b3518c1dbef01767a",
+      "has_oracle": false,
+      "bytes": 539824,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 457.9,
+          "characters": 72084,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "a96e392170c15e9ec3b37756c2f3fd94e1eb04eac797ae3554bba36b8f3275a3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 88484,
+          "milliseconds": 43.9045,
+          "characters": 71693,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "7253f82b1627b07330295af13075ef7aaa47d73fe7d63383e87872f54029d4ba",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 11.699999999254942,
+          "characters": 71645,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "887a1e412d55192c183258aca8dd9a01ce6e6a06cb111566617789492958cbcd",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "upstream-Alices-Adventures",
+      "file": "upstream-Alices-Adventures.mobi",
+      "kind": "MOBI",
+      "origin": "upstream-public-sample",
+      "source": "https://raw.githubusercontent.com/hhk-png/lingo-reader/720914c1339499761d82dc68077ab521f6dafb55/example/Alices-Adventures.mobi",
+      "sha256": "31dbf7c516971c350a76e641983a66001ff3286e82154f93bc2cfb2566e4565a",
+      "has_oracle": false,
+      "bytes": 3248570,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 659.21,
+          "characters": 144075,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "28b1464c53dbfba39ae5632f86a75c1a26e37c564056b67e7d5c78753fd02a70",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 81,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 15,
+          "rawCharacters": 199320,
+          "milliseconds": 43.209792,
+          "characters": 143691,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "265f4591f4894c638a1e012118560476277f6a541b8ca05efacca90125ce39b6",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 15,
+          "milliseconds": 23.200000001117587,
+          "characters": 143691,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "265f4591f4894c638a1e012118560476277f6a541b8ca05efacca90125ce39b6",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "upstream-sample-mobi-files-Around-the-World",
+      "file": "upstream-sample-mobi-files-Around-the-World.mobi",
+      "kind": "MOBI",
+      "origin": "upstream-public-sample",
+      "source": "https://raw.githubusercontent.com/hhk-png/lingo-reader/720914c1339499761d82dc68077ab521f6dafb55/example/sample-mobi-files-Around-the-World.mobi",
+      "sha256": "6287791ce23d3e327f4a0880cf02b7d59cdd9164ea7548c30a3a5571b32f0d01",
+      "has_oracle": false,
+      "bytes": 447076,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 1249.88,
+          "characters": 308955,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "38f6f39c41e61f0df73aea3ca19a038e6b3f8c8206cbd4b901d077e918fb7633",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 195,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 33,
+          "rawCharacters": 538931,
+          "milliseconds": 87.88929200000001,
+          "characters": 308598,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "b5155a7d4d729a16017f2ed78858589f50f397d9ecd1d5a10e017f94632e00a4",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 33,
+          "milliseconds": 45.29999999888241,
+          "characters": 308598,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "b5155a7d4d729a16017f2ed78858589f50f397d9ecd1d5a10e017f94632e00a4",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "upstream-mobiLang",
+      "file": "upstream-mobiLang.mobi",
+      "kind": "MOBI",
+      "origin": "upstream-public-sample",
+      "source": "https://raw.githubusercontent.com/hhk-png/lingo-reader/720914c1339499761d82dc68077ab521f6dafb55/example/mobiLang.mobi",
+      "sha256": "55a9a548c16b35eab536256df550db18b5699f27b3eafadcfe09b5f38d58c52a",
+      "has_oracle": false,
+      "bytes": 10841113,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 745.73,
+          "characters": 302893,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "c67f05e0488c92e803482d60690b185fb640673e7ba878545b5e6fb57229dcfa",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 320,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 4,
+          "rawCharacters": 360494,
+          "milliseconds": 130.06183299999998,
+          "characters": 302694,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "22e9c7f5b38f9104d56f4f0467617686ebbcbee99709298f3a6b81da94f1eda3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 4,
+          "milliseconds": 71.5,
+          "characters": 302694,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "22e9c7f5b38f9104d56f4f0467617686ebbcbee99709298f3a6b81da94f1eda3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "unicode-filename",
+      "file": "日本語の本 空白.epub",
+      "kind": "EPUB",
+      "origin": "controlled",
+      "source": "self-authored controlled fixture",
+      "has_oracle": true,
+      "bytes": 2546,
+      "sha256": "8d332992f0facd5c246bb3cd1e394020be90892e66488416b52d5d82ce39da64",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 291.28,
+          "characters": 77,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 3,
+          "missing_blocks": [
+            "JPSTART雨が上がったので、傘を閉じて小さな喫茶店に入った。",
+            "東京で本を読む。JPEND"
+          ],
+          "ruby_readings_present": [
+            "きっさてん",
+            "とうきょう",
+            "ほん"
+          ],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "700e4c5465945ccd4b33d6f24a98f30c04ebb124b21e413e1e64b7211a5ae5fd",
+          "check_passed": false
+        },
+        "lingo": {
+          "ok": true,
+          "method": "epub",
+          "info": null,
+          "sections": 1,
+          "rawCharacters": 182,
+          "milliseconds": 8.187584000000001,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 1.200000001117587,
+          "characters": 56,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "11ad61b768a670e362238aebde26693362ff1ada9fcd581cd5ddef459aadfd2b",
+          "required_blocks_found": 3,
+          "required_blocks_total": 3,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "corrupt-epub",
+      "file": "corrupt.epub",
+      "kind": "EPUB",
+      "origin": "negative-control",
+      "reject": true,
+      "source": "modified controlled fixture",
+      "has_oracle": false,
+      "bytes": 100,
+      "sha256": "68aa73a9a45ba22865756fa09d812982e033971d79ac57b7bdd6678684b45a99",
+      "engines": {
+        "calibre": {
+          "ok": false,
+          "wall_ms": 267.04,
+          "error": "py\", line 248, in find_opf\nFileNotFoundError: [Errno 2] No such file or directory: 'META-INF/container.xml'\nTraceback (most recent call last):\n  File \"runpy.py\", line 198, in _run_module_as_main\n  File \"runpy.py\", line 88, in _run_code\n  File \"site.py\", line 42, in <module>\n  File \"site.py\", line 38, in main\n  File \"calibre/ebooks/conversion/cli.py\", line 427, in main\n  File \"calibre/ebooks/conversion/plumber.py\", line 1087, in run\n  File \"calibre/customize/conversion.py\", line 241, in __call__\n  File \"calibre/ebooks/conversion/plugins/epub_input.py\", line 289, in convert\nValueError: <evaluation-root>/corpus/corrupt.epub is not a valid EPUB file (could not find opf)\n",
+          "characters": 0,
+          "replacement_characters": 0,
+          "expected_rejection": true,
+          "nonempty": false,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": false,
+          "wall_ms": 79.9,
+          "error": "<evaluation-root>/node_modules/jszip/lib/zipEntries.js:170\n                throw new Error(\"Corrupted zip: can't find end of central directory\");\n                      ^\n\nError: Corrupted zip: can't find end of central directory\n    at ZipEntries.readEndOfCentral (<evaluation-root>/node_modules/jszip/lib/zipEntries.js:170:23)\n    at ZipEntries.load (<evaluation-root>/node_modules/jszip/lib/zipEntries.js:255:14)\n    at <evaluation-root>/node_modules/jszip/lib/load.js:48:24\n\nNode.js v26.8.1\n",
+          "characters": 0,
+          "replacement_characters": 0,
+          "expected_rejection": true,
+          "nonempty": false,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": false,
+          "error": "invalid zip data",
+          "milliseconds": 0.7000000011175871,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "corrupt-mobi",
+      "file": "corrupt.mobi",
+      "kind": "MOBI",
+      "origin": "negative-control",
+      "reject": true,
+      "source": "modified controlled fixture",
+      "has_oracle": false,
+      "bytes": 100,
+      "sha256": "b71170b7fb2d5d0c2a72376a3f6532cc64edb4aba8be1e4f7d2e476aac16c2ce",
+      "engines": {
+        "calibre": {
+          "ok": false,
+          "wall_ms": 255.69,
+          "error": "rror: unpack requires a buffer of 8 bytes\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"runpy.py\", line 198, in _run_module_as_main\n  File \"runpy.py\", line 88, in _run_code\n  File \"site.py\", line 42, in <module>\n  File \"site.py\", line 38, in main\n  File \"calibre/ebooks/conversion/cli.py\", line 427, in main\n  File \"calibre/ebooks/conversion/plumber.py\", line 1087, in run\n  File \"calibre/customize/conversion.py\", line 241, in __call__\n  File \"calibre/ebooks/conversion/plugins/mobi_input.py\", line 34, in convert\n  File \"calibre/ebooks/mobi/reader/mobi6.py\", line 103, in __init__\nstruct.error: unpack requires a buffer of 8 bytes\n",
+          "characters": 0,
+          "replacement_characters": 0,
+          "expected_rejection": true,
+          "nonempty": false,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": false,
+          "error": "Truncated MOBI header",
+          "milliseconds": 0.6760000000000019,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": false,
+          "error": "Truncated MOBI header",
+          "milliseconds": 0.5,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "drm-flag-mobi",
+      "file": "drm-flag.mobi",
+      "kind": "MOBI",
+      "origin": "negative-control",
+      "reject": true,
+      "source": "modified controlled fixture",
+      "has_oracle": false,
+      "bytes": 9966,
+      "sha256": "b0d3c6e50fdfb8c09684d679a28bbe3538e4f6f0a5bcbc2705574ac8e4d6414b",
+      "engines": {
+        "calibre": {
+          "ok": false,
+          "wall_ms": 240.46,
+          "error": "eption, another exception occurred:\n\nTraceback (most recent call last):\n  File \"runpy.py\", line 198, in _run_module_as_main\n  File \"runpy.py\", line 88, in _run_code\n  File \"site.py\", line 42, in <module>\n  File \"site.py\", line 38, in main\n  File \"calibre/ebooks/conversion/cli.py\", line 427, in main\n  File \"calibre/ebooks/conversion/plumber.py\", line 1087, in run\n  File \"calibre/customize/conversion.py\", line 241, in __call__\n  File \"calibre/ebooks/conversion/plugins/mobi_input.py\", line 37, in convert\n  File \"calibre/ebooks/mobi/reader/mobi6.py\", line 167, in extract_content\n  File \"calibre/ebooks/mobi/reader/mobi6.py\", line 163, in check_for_drm\ncalibre.ebooks.DRMError: epub3-japanese-ruby\n",
+          "characters": 0,
+          "replacement_characters": 0,
+          "expected_rejection": true,
+          "nonempty": false,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": false,
+          "error": "DRM encrypted MOBI",
+          "milliseconds": 0.7028750000000059,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": false,
+          "error": "DRM encrypted MOBI",
+          "milliseconds": 0.30000000074505806,
+          "characters": 0,
+          "nonempty": false,
+          "replacement_characters": 0,
+          "text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-spine-order",
+      "file": "mobi6-spine-order.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub2-spine-order.epub",
+      "has_oracle": true,
+      "bytes": 10030,
+      "sha256": "ccd6b3d25eddb70bd814ea2540786601bc96f397f9234d5d885cd97c658e93b3",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 327.74,
+          "characters": 141,
+          "replacement_characters": 0,
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "6205223d76ea225c3090770f31f54be4f49c3dc467aa280e93a800db9225d8cd",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 9,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 5,
+          "rawCharacters": 686,
+          "milliseconds": 6.367750000000001,
+          "characters": 124,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "450ec1dd37b9603c5cd486c31dae3d91f1de4101983a48cd68a1da91a840424d",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 5,
+          "milliseconds": 1.199999999254942,
+          "characters": 124,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "450ec1dd37b9603c5cd486c31dae3d91f1de4101983a48cd68a1da91a840424d",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi8-spine-order",
+      "file": "mobi8-spine-order.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-calibre-encoded",
+      "source": "Calibre 9.3.1 encoder from epub2-spine-order.epub",
+      "has_oracle": true,
+      "bytes": 12453,
+      "sha256": "4421ccad3a61ab973d30597b70bc0ff12bd36ff83c6720cca2bde233c1c4a587",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 376.32,
+          "characters": 145,
+          "replacement_characters": 0,
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "7df8f34499dc0ccf15863f15707a072b1d80842e67a78414bd0399db31b6ae2e",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "kf8",
+          "info": {
+            "records": 17,
+            "compression": 2,
+            "encryption": 0,
+            "version": 8,
+            "encoding": 65001
+          },
+          "sections": 4,
+          "rawCharacters": 612,
+          "milliseconds": 5.519416999999997,
+          "characters": 122,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "3c5c414619d2a0d5f509b724ed04bc2efe69f7872a046b704ff9b171ab81b03f",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 4,
+          "milliseconds": 2.400000000372529,
+          "characters": 122,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "3c5c414619d2a0d5f509b724ed04bc2efe69f7872a046b704ff9b171ab81b03f",
+          "required_blocks_found": 6,
+          "required_blocks_total": 6,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-windows1252",
+      "file": "mobi6-windows1252.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-reencoded",
+      "source": "Independent uncompressed CP1252 text record with rebuilt PDB offsets",
+      "has_oracle": true,
+      "bytes": 9643,
+      "sha256": "7d758fd467f4a2e2b5674d67873752904e5f4b90d842b75d893840f0184d45ee",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 322.58,
+          "characters": 67,
+          "replacement_characters": 0,
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "c715f92c05bf23b6ff00174c14435621ae28391f4fb1178af4fbc32d84bc7e8c",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 9,
+            "compression": 1,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 1252
+          },
+          "sections": 1,
+          "rawCharacters": 74,
+          "milliseconds": 3.190957999999995,
+          "characters": 60,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "0bff8cec765407c9abe5f685237f48d1f7ce0c85c144db8b95fcbbeeffa71b15",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 0.8000000007450581,
+          "characters": 60,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "0bff8cec765407c9abe5f685237f48d1f7ce0c85c144db8b95fcbbeeffa71b15",
+          "required_blocks_found": 2,
+          "required_blocks_total": 2,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "independent-testbook",
+      "file": "independent-testbook.mobi",
+      "kind": "MOBI",
+      "origin": "independent-upstream-sample",
+      "source": "https://github.com/daviddrysdale/jsebook/blob/851b9708b4cd940bacfcf17cc363af79fa17bf75/data/testbook.mobi",
+      "sha256": "d16bbbc3db537ea091e4d1f75efc3079321a18266476cf097354f653b5ab9e41",
+      "has_oracle": false,
+      "bytes": 145883,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 519.72,
+          "characters": 147359,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "e6f62114f2d1133e91f9a9db0eea209a7f260d719cdcd8e406182f144c317ecb",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 53,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 49,
+          "rawCharacters": 173850,
+          "milliseconds": 31.381249999999994,
+          "characters": 146740,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "0063a40dd4033feb07922bdab9fc997b79b8679be620ea1415958c9d7187bcd2",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 49,
+          "milliseconds": 10.700000001117587,
+          "characters": 146740,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "0063a40dd4033feb07922bdab9fc997b79b8679be620ea1415958c9d7187bcd2",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "independent-testbook-images",
+      "file": "independent-testbook-images.mobi",
+      "kind": "MOBI",
+      "origin": "independent-upstream-sample",
+      "source": "https://github.com/daviddrysdale/jsebook/blob/851b9708b4cd940bacfcf17cc363af79fa17bf75/data/testbook-images.mobi",
+      "sha256": "5ca6cc84a33c889ceda3cd79eec2cf79ecff48d67b955045cfdd8e11ad23c0f6",
+      "has_oracle": false,
+      "bytes": 719435,
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 498.93,
+          "characters": 213598,
+          "replacement_characters": 0,
+          "nonempty": true,
+          "text_sha256": "c5188e092f0d5e6397794c3190bbf25d447dd3d41ebe1ba9a8656827c8aeec79",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "kf8",
+          "info": {
+            "records": 154,
+            "compression": 2,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001,
+            "boundary": 80
+          },
+          "sections": 4,
+          "rawCharacters": 232084,
+          "milliseconds": 21.71275,
+          "characters": 213177,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "a9a750825bde5e10964958e3489ccf4bd246df9db5a52d5e6aa2add950553da3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 4,
+          "milliseconds": 21,
+          "characters": 213177,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "a9a750825bde5e10964958e3489ccf4bd246df9db5a52d5e6aa2add950553da3",
+          "anchors_found": 40,
+          "anchors_total": 40,
+          "anchor_order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-huff-literal",
+      "file": "mobi6-huff-literal.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-independent-huff-encoder",
+      "source": "Self-authored fixed-width HUFF/CDIC dictionary",
+      "has_oracle": true,
+      "bytes": 12274,
+      "sha256": "4ac65b83f72cf604f415fc7ee8909c7a8431ee03d9fb4fbaaececed055dfba97",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 332.24,
+          "characters": 52,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "8c64748f9e3ae232e9d7d0cb1438a767e0c28fe5c2fb86aa779e7a45e7f9b1bd",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 11,
+            "compression": 17480,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 1,
+          "rawCharacters": 53,
+          "milliseconds": 2.9803330000000017,
+          "characters": 46,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070",
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 1.800000000745058,
+          "characters": 46,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070",
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    },
+    {
+      "id": "mobi6-huff-recursive",
+      "file": "mobi6-huff-recursive.mobi",
+      "kind": "MOBI",
+      "origin": "controlled-independent-huff-encoder",
+      "source": "Self-authored fixed-width HUFF/CDIC dictionary with a recursive phrase",
+      "has_oracle": true,
+      "bytes": 12274,
+      "sha256": "f38ffebbc172ed3d83b60a44da99b95d04cc0c51020c86e9c54dd1040eaebc78",
+      "engines": {
+        "calibre": {
+          "ok": true,
+          "wall_ms": 349.75,
+          "characters": 52,
+          "replacement_characters": 0,
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "missing_blocks": [],
+          "ruby_readings_present": [],
+          "noise_markers": [],
+          "order_correct": true,
+          "nonempty": true,
+          "text_sha256": "8c64748f9e3ae232e9d7d0cb1438a767e0c28fe5c2fb86aa779e7a45e7f9b1bd",
+          "check_passed": true
+        },
+        "lingo": {
+          "ok": true,
+          "method": "mobi",
+          "info": {
+            "records": 11,
+            "compression": 17480,
+            "encryption": 0,
+            "version": 6,
+            "encoding": 65001
+          },
+          "sections": 1,
+          "rawCharacters": 53,
+          "milliseconds": 2.8431250000000006,
+          "characters": 46,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070",
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        },
+        "foliate": {
+          "ok": true,
+          "sections": 1,
+          "milliseconds": 1.300000000745058,
+          "characters": 46,
+          "nonempty": true,
+          "replacement_characters": 0,
+          "text_sha256": "99a239ef9833324b8714d05b72b76d673584e409fc057f95df75635f73768070",
+          "required_blocks_found": 1,
+          "required_blocks_total": 1,
+          "noise_markers": [],
+          "order_correct": true,
+          "check_passed": true
+        }
+      }
+    }
+  ],
+  "counts": {
+    "calibre": {
+      "valid_nonempty": 24,
+      "valid_total": 24,
+      "controlled_pass": 10,
+      "controlled_total": 15,
+      "upstream_pass": 7,
+      "upstream_total": 7,
+      "anchors_found": 280,
+      "anchors_total": 280,
+      "negative_pass": 3,
+      "negative_total": 3
+    },
+    "lingo": {
+      "valid_nonempty": 23,
+      "valid_total": 24,
+      "controlled_pass": 12,
+      "controlled_total": 15,
+      "upstream_pass": 7,
+      "upstream_total": 7,
+      "anchors_found": 280,
+      "anchors_total": 280,
+      "negative_pass": 3,
+      "negative_total": 3
+    },
+    "foliate": {
+      "valid_nonempty": 24,
+      "valid_total": 24,
+      "controlled_pass": 15,
+      "controlled_total": 15,
+      "upstream_pass": 7,
+      "upstream_total": 7,
+      "anchors_found": 280,
+      "anchors_total": 280,
+      "negative_pass": 3,
+      "negative_total": 3
+    }
+  },
+  "sample_revision": "720914c1339499761d82dc68077ab521f6dafb55"
+}

@@ -1,0 +1,16 @@
+node_modules/
+foliate-js/
+jsebook/
+corpus/
+results/
+calibre-config/
+electron-profile/
+electron-crash-dumps/
+__pycache__/
+*.log
+manifest*.json
+results.json
+electron-node-results.json
+comparison-summary.json
+reproduction-summary.json
+environment.json

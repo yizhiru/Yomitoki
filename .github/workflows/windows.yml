@@ -33,8 +33,13 @@ jobs:
         run: npm run prepare:resources
       - name: Core tests
         run: npm test
+      - name: Verify calibre is not required by the regression environment
+        shell: pwsh
+        run: |
+          if (Get-Command ebook-convert -ErrorAction SilentlyContinue) { throw 'Calibre must be absent for this regression' }
+          if (Test-Path 'C:\Program Files\Calibre2\ebook-convert.exe') { throw 'Calibre must be absent for this regression' }
       - name: Source application tests
-        run: npm run test:ui
+        run: npm run test:ui -- --output=test-results/source
       - name: Build Windows installer
         run: npm run build:win
         env:
@@ -61,9 +66,10 @@ jobs:
           if (!(Test-Path (Join-Path $gpuRuntime 'ggml-vulkan.dll'))) { throw 'Vulkan backend is missing' }
           if (!(Test-Path (Join-Path $gpuRuntime 'LICENSE-LLVM-OpenMP'))) { throw 'Vulkan runtime license is missing' }
           if (!(Test-Path (Join-Path $destination 'resources/reading/runtime/LICENSE-LLVM-OpenMP'))) { throw 'CPU runtime license is missing' }
+          $env:CALIBRE_CONFIG_DIRECTORY = Join-Path $env:RUNNER_TEMP 'No Calibre Configuration'
           if (Get-ChildItem $destination -Recurse -Filter '*.gguf') { throw 'Model weights must not be bundled' }
           $env:YOMITOKI_EXECUTABLE = $executable
-          npm run test:ui
+          npm run test:ui -- --output=test-results/installed
           if ($LASTEXITCODE -ne 0) { throw 'Installed application tests failed' }
       - name: Upload installer
         uses: actions/upload-artifact@v7.0.2

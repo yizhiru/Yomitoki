@@ -5,10 +5,18 @@ Windows 客户端位于 `desktop/`，采用 Electron，macOS 继续使用原有 
 ## 安装与阅读
 
 1. 从 [Releases](https://github.com/yizhiru/Yomitoki/releases) 下载 Windows x64 的 `setup.exe`，按向导安装。
-2. 点击「导入」，选择 PDF、EPUB、MOBI 或 UTF-8 TXT。扫描 PDF 需先做 OCR；EPUB / MOBI 需安装 [calibre](https://calibre-ebook.com/)，使用默认目录或将 `ebook-convert` 加入 PATH。
+2. 点击「导入」，选择 PDF、EPUB、MOBI 或 UTF-8 TXT。扫描 PDF 需先做 OCR；EPUB / MOBI 使用随软件内置的 Foliate 模块提取正文，不需要安装 calibre、Node.js 或 Python。
 3. 默认关闭单击自动查词。手动选中单词后查询释义，选中完整句子后可本地翻译或长句分析，段落选区只提供本地翻译；所有有效选区均可打开大模型对话。使用 Ctrl+C 复制，Ctrl+Enter 发送对话问题。
 
 查词使用随附离线词典；通过 kuromoji 的日语形态分析识别基本形，例如「微笑んだ」归一为「微笑む」。英文释义先于中文释义显示。单词及原句可保存、搜索和导出为 CSV / TXT。正文字号、释义字号、阅读位置、分栏宽度与对话记录自动保存。
+
+## 内置电子书导入
+
+支持 EPUB2/3、旧 MOBI、纯 KF8 及混合 MOBI；按阅读顺序提取文字，去掉可识别的 ruby 注音、脚本与隐藏内容。旧 MOBI 中若注音已变成普通文字，会保留原样，不凭猜测删字。阅读仍采用正文重排，不保留图片、竖排或完整原书版式。
+
+导入在隔离后台进程中进行，可点击「取消导入」，超时或损坏会显示错误，不会写入不完整书架。仅字体混淆的 EPUB 可以提取未加密的正文；不支持 DRM 或加密正文。上限为输入文件 300 MB、ZIP 解压内容 128 MB、单条目 32 MB、最多 10000 个条目及 1000 万字符。较大书籍需先拆分。
+
+原有通过 Calibre 导入的书籍、生词和原句位置保持原样，不自动重导入。同一本书重新导入后的页/节可能与旧版不同。macOS 原生客户端目前仍通过 Calibre 导入 EPUB / MOBI，本次改动只接入 Windows/Electron 客户端。
 
 ## 模型设置
 
@@ -36,6 +44,6 @@ npm run build:win
 
 生成的安装包位于 `dist/windows/`。Python 仅用于构建词典与准备资源，终端用户无需安装。模型权重不会下载到构建目录或包含在安装包中。
 
-GitHub Actions 的 [Windows build and tests](../.github/workflows/windows.yml) 在 Windows 环境运行核心测试、界面流程与安装包构建，再静默安装生成的程序，复测阅读、PDF / TXT 导入、释义缓存、生词导出、长句分析、对话、设置保存及内置引擎启动。模型 API 使用本机模拟服务，测试不消耗真实 API 额度，也不评估真实翻译质量。
+GitHub Actions 的 [Windows build and tests](../.github/workflows/windows.yml) 在 Windows 环境运行核心测试、界面流程与安装包构建，再静默安装生成的程序，复测阅读、PDF / TXT / EPUB / MOBI 导入（含 25 个编码、路径、压缩与错误用例）、释义缓存、生词导出、长句分析、对话、设置保存及内置引擎启动。模型 API 使用本机模拟服务，测试不消耗真实 API 额度，也不评估真实翻译质量。
 
 Electron 集成遵循[隔离与 IPC 原则](https://www.electronjs.org/docs/latest/tutorial/security)，系统凭据加密使用 [safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)。
