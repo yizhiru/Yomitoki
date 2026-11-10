@@ -81,3 +81,6 @@ Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。macOS �
 原始逐项测试摘要见 [Windows 回归记录](windows-ebook-regression.json)，GitHub Actions 的 `windows-test-results` 产物同时保留源码与安装后截图及样本结果。本轮未发布到正式 Release，安装包来自该次成功构建。
 
 这证明当前用例集在 Windows 实际安装包中通过；不等同于所有出版来源、全部复杂 CSS / HUFF 字典或每一种 Windows 配置的保证。
+
+
+已验证安装包：[Yomitoki-0.1.1-windows-x64 构建产物](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794/artifacts/13725952988)。产物 ZIP 大小为 211897968 字节，GitHub 记录的 ZIP SHA-256 为 `3d25e915108deaee2ce068716d609ed1f3e5fa044019b6400023ff948baa97d2`（不是 ZIP 内 EXE 的单独校验值）。

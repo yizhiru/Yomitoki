@@ -272,5 +272,13 @@
         }
       ]
     }
+  },
+  "installer_artifact": {
+    "name": "Yomitoki-0.1.1-windows-x64",
+    "id": 13725952988,
+    "url": "https://github.com/yizhiru/Yomitoki/actions/runs/42734174794/artifacts/13725952988",
+    "archive_size_bytes": 211897968,
+    "archive_sha256": "3d25e915108deaee2ce068716d609ed1f3e5fa044019b6400023ff948baa97d2",
+    "digest_source": "GitHub Actions artifact metadata; digest applies to artifact ZIP, not the inner EXE"
   }
 }
