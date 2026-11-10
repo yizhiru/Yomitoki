@@ -7,7 +7,7 @@ on:
         required: true
       tag:
         description: Existing draft release tag
-        default: v0.1.1
+        default: v0.1.0
         required: true
 permissions:
   contents: read

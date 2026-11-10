@@ -2,7 +2,7 @@
 
 验证日期：2026-11-09。针对本项目的正文重排阅读，选择 **Foliate 固定版本 + 自有加载及正文提取适配层** 作为后续内置方案，不直接采用最初候选的 Lingo 库。
 
-此报告记录 2026-11-09 的隔离选型验证。2026-11-10 已按本结论接入 Windows/Electron 和 macOS 原生客户端的内置导入；两端回归结果见报告末尾。正式 Release 尚未更新。
+此报告记录 2026-11-09 的隔离选型验证。2026-11-10 已按本结论接入 Windows/Electron 和 macOS 原生客户端的内置导入；两端回归结果见报告末尾。正式安装包统一以重新发布的 v0.1.0 为准。
 
 ## 环境与范围
 
@@ -78,7 +78,7 @@ Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。当时 m
 - 验证了导入后实际选词、离线释义、生词保存、重启恢复、用户取消、超时，以及隐藏解析窗口的回收。
 - 原有 PDF / TXT、阅读、模型模拟请求、对话、设置和导出回归同样通过。
 
-原始逐项测试摘要见 [Windows 回归记录](windows-ebook-regression.json)，GitHub Actions 的 `windows-test-results` 产物同时保留源码与安装后截图及样本结果。本轮未发布到正式 Release，安装包来自该次成功构建。
+原始逐项测试摘要见 [Windows 回归记录](windows-ebook-regression.json)，GitHub Actions 的 `windows-test-results` 产物同时保留源码与安装后截图及样本结果。这是先前验证构建的记录，安装包来自该次成功构建；重新发布的 v0.1.0 将使用相同导入实现重新构建。
 
 这证明当前用例集在 Windows 实际安装包中通过；不等同于所有出版来源、全部复杂 CSS / HUFF 字典或每一种 Windows 配置的保证。
 

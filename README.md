@@ -8,10 +8,10 @@
 
 ## 平台与安装
 
-| 平台 | 0.1.1 安装包 | 要求 |
+| 平台 | 0.1.0 安装包 | 要求 |
 | --- | --- | --- |
-| macOS | `Yomitoki-0.1.1-macos-arm64.zip` | Apple Silicon，macOS 14+ |
-| Windows | `Yomitoki-0.1.1-windows-x64-setup.exe` | Windows 10 / 11，64 位 Intel / AMD |
+| macOS | `Yomitoki-0.1.0-macos-arm64.zip` | Apple Silicon，macOS 14+ |
+| Windows | `Yomitoki-0.1.0-windows-x64-setup.exe` | Windows 10 / 11，64 位 Intel / AMD |
 
 macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安装向导。安装包包含离线词典和翻译引擎，**不包含模型权重**。校验文件随 Release 提供。
 
@@ -28,13 +28,13 @@ macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安�
 
 ## 开始使用
 
-1. **导入书籍**：PDF 需有文字层；当前源码的 Windows、macOS 版均内置 Foliate EPUB / MOBI 正文解析，无需额外安装 Calibre。两端都不支持 DRM 正文。
+1. **导入书籍**：PDF 需有文字层；Windows、macOS 版均内置 Foliate EPUB / MOBI 正文解析，无需额外安装 Calibre。两端都不支持 DRM 正文。
 2. **选中文字**：单词显示两种释义，完整句子显示翻译与长句分析，段落显示翻译；有效选区均可打开对话。单击自动查词默认关闭，复制使用系统快捷键。
 3. **配置模型（可选）**：在「设置」填写 DeepSeek 或 OpenAI 兼容接口和自己的 API key；本地翻译需手动下载或选择约 1.13 GB 的 Q4 模型，支持 HF 镜像与 ModelScope。
 
-内置电子书导入尚未更新到正式 Release；旧版 0.1.1 安装包仍使用 Calibre。构建与回归说明见 [EPUB / MOBI 兼容性记录](docs/epub-mobi-compatibility.md)。
+本次重新发布的 0.1.0 已包含内置电子书导入和 Windows GPU 加速，请以本次发布的安装包和校验文件为准。构建与回归说明见 [EPUB / MOBI 兼容性记录](docs/epub-mobi-compatibility.md)。
 
-选择文字不会自动请求模型。释义、分析和译文会缓存；远程功能按你的 API 账户计费。本地翻译引擎已内置，macOS 使用 Metal，Windows 0.1.1 起优先使用 Vulkan GPU，自动模式下失败回退 CPU。
+选择文字不会自动请求模型。释义、分析和译文会缓存；远程功能按你的 API 账户计费。本地翻译引擎已内置，macOS 使用 Metal，Windows 优先使用 Vulkan GPU，自动模式下失败回退 CPU。
 
 Windows 提供「自动 / GPU / CPU」选项，使用方式与验证范围见 [Windows GPU 加速](docs/windows-gpu.md)。
 

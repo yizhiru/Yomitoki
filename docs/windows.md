@@ -16,13 +16,13 @@ Windows 客户端位于 `desktop/`，采用 Electron，macOS 继续使用原有 
 
 导入在隔离后台进程中进行，可点击「取消导入」，超时或损坏会显示错误，不会写入不完整书架。仅字体混淆的 EPUB 可以提取未加密的正文；不支持 DRM 或加密正文。上限为输入文件 300 MB、ZIP 解压内容 128 MB、单条目 32 MB、最多 10000 个条目及 1000 万字符。较大书籍需先拆分。
 
-原有通过 Calibre 导入的书籍、生词和原句位置保持原样，不自动重导入。同一本书重新导入后的页/节可能与旧版不同。macOS 原生客户端目前仍通过 Calibre 导入 EPUB / MOBI，本次改动只接入 Windows/Electron 客户端。
+原有通过 Calibre 导入的书籍、生词和原句位置保持原样，不自动重导入。同一本书重新导入后的页/节可能与旧版不同。macOS 原生客户端也已内置 Foliate，使用同一套固定版本解析模块。
 
 ## 模型设置
 
 - 大模型释义、长句分析和对话共用「设置 → 大模型」中的服务商、URL、模型与 API key。支持 DeepSeek 或 OpenAI Chat Completions 兼容接口。API key 使用 Windows 系统加密保存，不写入导出文件。
 - 本地翻译已内置固定版本 llama.cpp Vulkan GPU 与 CPU 引擎，无需 Homebrew、Python 或手动选择引擎。点击「下载 Q4 模型」从 HF 镜像或 ModelScope 下载约 1.13 GB 的 Hy-MT2 权重，也可选择已有 GGUF 文件。大小与 SHA-256 校验通过后启用。
-- 本地翻译仅在主动点击时运行，不联网发送选文。0.1.1 起可选择自动、GPU 或 CPU 模式，自动模式优先 GPU，失败时回退 CPU；具体使用与验证范围见 [GPU 加速说明](windows-gpu.md)。可在设置中释放模型内存。
+- 本地翻译仅在主动点击时运行，不联网发送选文。本次重新发布的 0.1.0 可选择自动、GPU 或 CPU 模式，自动模式优先 GPU，失败时回退 CPU；具体使用与验证范围见 [GPU 加速说明](windows-gpu.md)。可在设置中释放模型内存。
 - 释义、分析和翻译均有本机缓存，重新查询可跳过缓存。切换阅读位置或停止查询会取消旧请求，过期响应不覆盖当前结果。
 
 ## 数据
@@ -49,4 +49,4 @@ GitHub Actions 的 [Windows build and tests](../.github/workflows/windows.yml) �
 Electron 集成遵循[隔离与 IPC 原则](https://www.electronjs.org/docs/latest/tutorial/security)，系统凭据加密使用 [safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)。
 
 
-内置 EPUB / MOBI 的安装包回归已在 [Windows 运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794) 通过，源码客户端与实际安装后的程序分别验证了 25 个电子书用例，以及导入后查词、生词保存、取消/超时和重启恢复。逐项证据见 [回归记录](windows-ebook-regression.json)。该构建未自动更新正式 Release。
+内置 EPUB / MOBI 的安装包回归已在 [Windows 运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794) 通过，源码客户端与实际安装后的程序分别验证了 25 个电子书用例，以及导入后查词、生词保存、取消/超时和重启恢复。逐项证据见 [回归记录](windows-ebook-regression.json)。该记录对应先前的验证构建；正式安装包统一以重新发布的 v0.1.0 为准。

@@ -11,6 +11,7 @@ test('built-in EPUB/MOBI import, limits, cancellation and persisted reading work
     args: process.env.YOMITOKI_EXECUTABLE ? [] : [project], env: { ...process.env, YOMITOKI_DATA_DIRECTORY: folder } });
   let app = await launch();
   try {
+    expect(await app.evaluate(({ app }) => app.getVersion())).toBe(require('../../package.json').version);
     const page = await app.firstWindow(); await expect(page.locator('#reader')).not.toBeEmpty();
     const results = [];
     for (const value of cases) {
