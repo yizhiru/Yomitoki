@@ -49,9 +49,11 @@ jobs:
               return name.split('/')[0] in {'Sources', 'Resources', 'desktop', 'scripts'}
           tested = {item['path']: item['sha'] for item in tree['tree'] if item['type'] == 'blob' and relevant(item['path'])}
           current = {}
-          for line in subprocess.check_output(['git', 'ls-tree', '-r', '--format=%(objectname) %(path)', 'HEAD'], text=True).splitlines():
-              sha, name = line.split(' ', 1)
-              if relevant(name): current[name] = sha
+          for line in subprocess.check_output(['git', 'ls-tree', '-r', '-z', 'HEAD'], text=True).split('\0'):
+              if not line: continue
+              metadata, name = line.split('\t', 1)
+              _, kind, sha = metadata.split()
+              if kind == 'blob' and relevant(name): current[name] = sha
           assert tested == current, 'Application sources differ from the tested Windows build'
           release = next(item for item in api('/releases?per_page=100') if item['tag_name'] == os.environ['RELEASE_TAG'])
           assert release['draft'], 'Only a draft release may be assembled'
