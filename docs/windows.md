@@ -49,4 +49,4 @@ GitHub Actions 的 [Windows build and tests](../.github/workflows/windows.yml) �
 Electron 集成遵循[隔离与 IPC 原则](https://www.electronjs.org/docs/latest/tutorial/security)，系统凭据加密使用 [safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)。
 
 
-内置 EPUB / MOBI 的安装包回归已在 [Windows 运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794) 通过，源码客户端与实际安装后的程序分别验证了 25 个电子书用例，以及导入后查词、生词保存、取消/超时和重启恢复。逐项证据见 [回归记录](windows-ebook-regression.json)。该记录对应先前的验证构建；正式安装包统一以重新发布的 v0.1.0 为准。
+内置 EPUB / MOBI 的安装包回归已在 [Windows 运行 42738321914](https://github.com/yizhiru/Yomitoki/actions/runs/42738321914) 通过，源码客户端与实际安装后的程序分别验证了 25 个电子书用例，以及导入后查词、生词保存、取消/超时和重启恢复。逐项证据见 [回归记录](windows-ebook-regression.json)。该记录对应重新发布的 [v0.1.0 正式安装包](https://github.com/yizhiru/Yomitoki/releases/tag/v0.1.0)。

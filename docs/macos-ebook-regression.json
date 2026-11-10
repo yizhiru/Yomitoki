@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T01:42:39.048599+00:00",
+  "generatedAt": "2026-11-10T01:58:15.496631+00:00",
   "architecture": "arm64",
   "foliateRevision": "78914aef4466eb960965702401634c2cb348e9b1",
   "fflateVersion": "0.8.3",
@@ -324,15 +324,19 @@
     "archiveCRCAndExtractedAppSignature": true
   },
   "artifact": {
-    "file": "Yomitoki-0.1.1-macos-arm64-foliate.zip",
-    "bytes": 35043222,
-    "sha256": "96b1d783d173c4b6e957afd8c8827fec4c972e14ba215f618c09303c50aed475",
-    "productionExecutableSHA256": "5f6f81104606ce6bf5d3524b6e9228fb0cf516d6e8114ebbb87f306fb101e89f",
-    "publishedToRelease": false
+    "file": "Yomitoki-0.1.0-macos-arm64.zip",
+    "bytes": 35043220,
+    "sha256": "f7ed783e568d8c12741a26902c5ef27cae9d38ed49d204d49ef7601875a29b60",
+    "productionExecutableSHA256": "8e1089193ccdd3d448f45e9def1199b1b1f560f9ea57b5f982d0ec0f6e8f00e0",
+    "publishedToRelease": true,
+    "url": "https://github.com/yizhiru/Yomitoki/releases/download/v0.1.0/Yomitoki-0.1.0-macos-arm64.zip"
   },
   "limits": [
     "Physical tests ran on Apple Silicon macOS 27.2 (26B123). macOS 14 and Intel hardware were not tested.",
     "Missing Object.groupBy and Map.groupBy were simulated in JavaScriptCore using the shipped compatibility script.",
     "The 25 fixtures cover 20 accepted and 5 intentionally rejected inputs, not every ebook producer or complex HUFF/CDIC dictionary."
-  ]
+  ],
+  "version": "0.1.0",
+  "testedCommit": "34406f8bb048af601fe5441350509aabe4197290",
+  "releaseURL": "https://github.com/yizhiru/Yomitoki/releases/tag/v0.1.0"
 }

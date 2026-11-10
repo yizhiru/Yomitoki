@@ -1,0 +1,45 @@
+{
+  "version": "0.1.0",
+  "releaseID": 439853637,
+  "releaseURL": "https://github.com/yizhiru/Yomitoki/releases/tag/v0.1.0",
+  "publishedAt": "2026-11-10T01:57:19Z",
+  "testedApplicationCommit": "34406f8bb048af601fe5441350509aabe4197290",
+  "releaseTagCommit": "54f2a2a28f404ef79df214c5e564ca9bbec29ef0",
+  "sourceMatch": "Sources, Resources, desktop and scripts are identical between the tested commit and release tag; only the release workflow path handling changed.",
+  "windowsBuildURL": "https://github.com/yizhiru/Yomitoki/actions/runs/42738321914",
+  "assetAssemblyURL": "https://github.com/yizhiru/Yomitoki/actions/runs/42739208340",
+  "assets": [
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 200,
+      "sha256": "feef44b309d4d2f8a387f9d96452687f892a94a810048dcba8bb2941006ee38e",
+      "url": "https://github.com/yizhiru/Yomitoki/releases/download/v0.1.0/SHA256SUMS.txt"
+    },
+    {
+      "name": "Yomitoki-0.1.0-macos-arm64.zip",
+      "bytes": 35043220,
+      "sha256": "f7ed783e568d8c12741a26902c5ef27cae9d38ed49d204d49ef7601875a29b60",
+      "url": "https://github.com/yizhiru/Yomitoki/releases/download/v0.1.0/Yomitoki-0.1.0-macos-arm64.zip"
+    },
+    {
+      "name": "Yomitoki-0.1.0-windows-x64-setup.exe",
+      "bytes": 211881645,
+      "sha256": "b25eaf07737822a407a868e17e3cd94311242d53fb8a1e53168a83985e66e3dd",
+      "url": "https://github.com/yizhiru/Yomitoki/releases/download/v0.1.0/Yomitoki-0.1.0-windows-x64-setup.exe"
+    }
+  ],
+  "replacedReleaseIDs": [
+    438898505,
+    438938137
+  ],
+  "regression": {
+    "windowsCoreTests": 20,
+    "windowsSourceUITests": 2,
+    "windowsInstalledUITests": 2,
+    "windowsEbookCasesPerRun": 25,
+    "macOSNativeTestGroups": 12,
+    "macOSEbookCasesPerRun": 25,
+    "acceptedEbooksPerRun": 20,
+    "expectedRejectionsPerRun": 5
+  }
+}

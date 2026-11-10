@@ -97,3 +97,10 @@ Safari 17.4 才加入 `Object.groupBy` / `Map.groupBy`（[WebKit 官方说明](h
 测试运行在禁止读取/执行本机两处 Calibre 的系统沙箱内，PATH 不含 Homebrew。第二轮将签名测试 App 移至包含空格和日文的路径，并使用 `Bundle.main` 资源定位。该 App 使用生产导入和 ReaderState 源码，替换主程序为测试入口；最终生产二进制另做启动和签名检查。现有 12 组原生测试及 20 项 Electron 核心测试通过，包内解析器源码、许可证、哈希和翻译引擎依赖校验通过。
 
 证据：[macOS 结构化回归结果](macos-ebook-regression.json)。重跑命令见 [macOS 文档](macos.md#内置电子书兼容性回归)。本轮没有 macOS 14 真机、Intel Mac 实测，也不代表已覆盖所有商用电子书或 DRM 文件。
+
+
+## 双端 0.1.0 正式发布（2026-11-10）
+
+已合并 Windows 和 macOS 内置 Foliate 改动到 main，删除此前的 0.1.0 / 0.1.1 Release，并统一重新发布 [v0.1.0](https://github.com/yizhiru/Yomitoki/releases/tag/v0.1.0)。正式包由主分支重新构建，Windows 实际安装回归见 [42738321914](https://github.com/yizhiru/Yomitoki/actions/runs/42738321914)，macOS 重新运行两轮 25 个用例与 12 组现有原生测试，并验证归档解压后的版本、签名、资源及禁用 Calibre 的启动。两端安装包的 SHA-256 与 GitHub 资产摘要及 SHA256SUMS.txt 一致。
+
+正式文件名、哈希、构建提交与发布记录见 [0.1.0 发布证据](release-0.1.0.json)。前文的旧版本号和 Actions 产物链接保留为选型与早期验证记录，正式下载以本次 Release 为准。

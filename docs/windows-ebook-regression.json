@@ -1,8 +1,8 @@
 {
   "date": "2026-11-10",
-  "run_url": "https://github.com/yizhiru/Yomitoki/actions/runs/42734174794",
-  "run_id": 42734174794,
-  "tested_commit": "1b7fdb9f1771f4bd2375fd685994b3d79866408d",
+  "run_url": "https://github.com/yizhiru/Yomitoki/actions/runs/42738321914",
+  "run_id": 42738321914,
+  "tested_commit": "34406f8bb048af601fe5441350509aabe4197290",
   "conclusion": "success",
   "runner": "windows-2022 x64",
   "calibre_installed": false,
@@ -274,11 +274,18 @@
     }
   },
   "installer_artifact": {
-    "name": "Yomitoki-0.1.1-windows-x64",
-    "id": 13725952988,
-    "url": "https://github.com/yizhiru/Yomitoki/actions/runs/42734174794/artifacts/13725952988",
-    "archive_size_bytes": 211897968,
-    "archive_sha256": "3d25e915108deaee2ce068716d609ed1f3e5fa044019b6400023ff948baa97d2",
-    "digest_source": "GitHub Actions artifact metadata; digest applies to artifact ZIP, not the inner EXE"
+    "name": "Yomitoki-0.1.0-windows-x64",
+    "id": 13728242383,
+    "url": "https://github.com/yizhiru/Yomitoki/actions/runs/42738321914/artifacts/13728242383",
+    "archive_size_bytes": 211897846,
+    "archive_sha256": "803147f66a671852111e0f9a0e939f322c07be195c4f9e1d09bdf8e3d146c0cf",
+    "digest_source": "GitHub Actions metadata; this digest applies to the artifact ZIP, not the EXE"
+  },
+  "version": "0.1.0",
+  "release_url": "https://github.com/yizhiru/Yomitoki/releases/tag/v0.1.0",
+  "release_installer": {
+    "url": "https://github.com/yizhiru/Yomitoki/releases/download/v0.1.0/Yomitoki-0.1.0-windows-x64-setup.exe",
+    "size_bytes": 211881645,
+    "sha256": "b25eaf07737822a407a868e17e3cd94311242d53fb8a1e53168a83985e66e3dd"
   }
 }
