@@ -1,0 +1,276 @@
+{
+  "date": "2026-11-10",
+  "run_url": "https://github.com/yizhiru/Yomitoki/actions/runs/42734174794",
+  "run_id": 42734174794,
+  "tested_commit": "1b7fdb9f1771f4bd2375fd685994b3d79866408d",
+  "conclusion": "success",
+  "runner": "windows-2022 x64",
+  "calibre_installed": false,
+  "core_tests_passed": 20,
+  "ui_source_tests_passed": 2,
+  "ui_installed_tests_passed": 2,
+  "ebook_import": {
+    "source": {
+      "packaged": false,
+      "platform": "win32",
+      "results": [
+        {
+          "id": "epub2-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-japanese-ruby",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-encoded-path-unicode",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub2-windows1252",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-hidden-and-script",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-ruby-many-chapters",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-uncompressed",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi8-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi-combo-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-latin",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "unicode-filename",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "corrupt-epub",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "corrupt-mobi",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "drm-flag-mobi",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "mobi6-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi8-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-windows1252",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-huff-literal",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-huff-recursive",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-utf16le",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-utf16be",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-font-obfuscation",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-encrypted-body",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "epub3-oversize-directory",
+          "rejectedAsExpected": true,
+          "ok": true
+        }
+      ]
+    },
+    "installed": {
+      "packaged": true,
+      "platform": "win32",
+      "results": [
+        {
+          "id": "epub2-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-japanese-ruby",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-encoded-path-unicode",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub2-windows1252",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-hidden-and-script",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-ruby-many-chapters",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-uncompressed",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi8-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi-combo-japanese",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-latin",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "unicode-filename",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "corrupt-epub",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "corrupt-mobi",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "drm-flag-mobi",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "mobi6-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi8-spine-order",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-windows1252",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-huff-literal",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "mobi6-huff-recursive",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-utf16le",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-utf16be",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-font-obfuscation",
+          "rejectedAsExpected": false,
+          "ok": true
+        },
+        {
+          "id": "epub3-encrypted-body",
+          "rejectedAsExpected": true,
+          "ok": true
+        },
+        {
+          "id": "epub3-oversize-directory",
+          "rejectedAsExpected": true,
+          "ok": true
+        }
+      ]
+    }
+  }
+}

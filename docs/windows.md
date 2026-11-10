@@ -47,3 +47,6 @@ npm run build:win
 GitHub Actions 的 [Windows build and tests](../.github/workflows/windows.yml) 在 Windows 环境运行核心测试、界面流程与安装包构建，再静默安装生成的程序，复测阅读、PDF / TXT / EPUB / MOBI 导入（含 25 个编码、路径、压缩与错误用例）、释义缓存、生词导出、长句分析、对话、设置保存及内置引擎启动。模型 API 使用本机模拟服务，测试不消耗真实 API 额度，也不评估真实翻译质量。
 
 Electron 集成遵循[隔离与 IPC 原则](https://www.electronjs.org/docs/latest/tutorial/security)，系统凭据加密使用 [safeStorage](https://www.electronjs.org/docs/latest/api/safe-storage)。
+
+
+内置 EPUB / MOBI 的安装包回归已在 [Windows 运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794) 通过，源码客户端与实际安装后的程序分别验证了 25 个电子书用例，以及导入后查词、生词保存、取消/超时和重启恢复。逐项证据见 [回归记录](windows-ebook-regression.json)。该构建未自动更新正式 Release。

@@ -64,3 +64,20 @@ Windows-1252 EPUB 是刻意构造的遗留编码容错用例，此报告不是 E
 - [Foliate 固定版本与接口](https://github.com/johnfactotum/foliate-js/tree/78914aef4466eb960965702401634c2cb348e9b1)
 - [Lingo EPUB](https://github.com/hhk-png/lingo-reader/tree/720914c1339499761d82dc68077ab521f6dafb55/packages/epub-parser)、[MOBI/KF8](https://github.com/hhk-png/lingo-reader/tree/720914c1339499761d82dc68077ab521f6dafb55/packages/mobi-parser)、[示例](https://github.com/hhk-png/lingo-reader/tree/720914c1339499761d82dc68077ab521f6dafb55/example)
 - 独立 MOBI 样本的固定版本与来源 URL 见 `recorded-results.json`，原书二进制和完整提取正文不提交。
+
+
+## 2026-11-10 正式接入与 Windows 安装包回归
+
+Windows/Electron 已内置 Foliate，正式导入不再调用 Calibre。macOS 原生客户端的 `Sources/Core.swift` 仍通过 Calibre 转换，未在本次改动中替换。
+
+已完成 [Windows 真实回归运行 42734174794](https://github.com/yizhiru/Yomitoki/actions/runs/42734174794)，测试提交为 `1b7fdb9f1771f4bd2375fd685994b3d79866408d`，运行环境为 `windows-2022` x64。工作流先确认环境没有 Calibre，再测试源码客户端、生成 NSIS 安装程序、静默安装，并对实际安装的 `Yomitoki.exe` 重跑完整界面测试。
+
+- 核心测试：20 项通过。
+- 源码界面回归：2 项通过；安装后界面回归：2 项通过。
+- 两次电子书回归各覆盖 25 个文件：20 个正常输入、5 个应拒绝输入。包含 EPUB2/3、章节顺序、中文/空格路径、日文注音、UTF-8 / UTF-16LE / UTF-16BE / Windows-1252、旧 MOBI、KF8、混合版、未压缩 / PalmDOC / HUFF-CDIC、字体混淆元数据、正文加密标志、损坏文件与解压上限。
+- 验证了导入后实际选词、离线释义、生词保存、重启恢复、用户取消、超时，以及隐藏解析窗口的回收。
+- 原有 PDF / TXT、阅读、模型模拟请求、对话、设置和导出回归同样通过。
+
+原始逐项测试摘要见 [Windows 回归记录](windows-ebook-regression.json)，GitHub Actions 的 `windows-test-results` 产物同时保留源码与安装后截图及样本结果。本轮未发布到正式 Release，安装包来自该次成功构建。
+
+这证明当前用例集在 Windows 实际安装包中通过；不等同于所有出版来源、全部复杂 CSS / HUFF 字典或每一种 Windows 配置的保证。
