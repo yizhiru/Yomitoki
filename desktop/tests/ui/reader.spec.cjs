@@ -135,6 +135,23 @@ test('阅读、三级选文、模型功能、生词导出、设置持久化与�
     expect(persisted.settings.translationAcceleration).toBe('cpu');
     expect(persisted.words).toHaveLength(1); expect(persisted.chats[0].messages).toHaveLength(2);
     expect(JSON.stringify(persisted)).not.toContain('"apiKey"');
+    const beforeHistory = requests.length;
+    await page.locator('#notes-tab').click();
+    await page.locator('#notes-kind').selectOption('analyses');
+    await expect(page.locator('#note-list')).toContainText('这本书还没有长句分析记录。');
+    await page.locator('#notes-books').getByRole('button', { name: /雨上がりの喫茶店/ }).click();
+    await page.getByRole('button', { name: '查看分析' }).click();
+    await expect(page.locator('.diagram')).toContainText('原因状语');
+    await page.locator('#notes-tab').click();
+    await page.locator('#notes-kind').selectOption('chats');
+    await page.getByRole('button', { name: '继续对话' }).click();
+    await expect(page.locator('.chat-message')).toHaveCount(2);
+    expect(requests.length).toBe(beforeHistory);
+    await page.locator('#notes-tab').click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('#note-list').getByRole('button', { name: '删除' }).click();
+    await expect(page.locator('#note-list')).toContainText('这本书还没有对话记录。');
+    expect(JSON.parse(fs.readFileSync(path.join(folder, 'library.json'))).chats).toHaveLength(0);
   } finally {
     if (app) await app.close(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
     fs.rmSync(folder, { recursive: true, force: true });

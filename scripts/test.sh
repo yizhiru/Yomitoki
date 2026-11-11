@@ -23,7 +23,7 @@ swiftc -module-cache-path "$PWD/.build/swift-cache" \
 .build/cache-tests
 swiftc -module-cache-path "$PWD/.build/swift-cache" \
     -target "$(uname -m)-apple-macosx14.0" \
-    Sources/Core.swift Sources/EbookImport.swift Sources/PartsOfSpeech.swift Sources/ModelDefinitions.swift Sources/DefinitionCache.swift Sources/TranslationSelection.swift Sources/TranslationMirrors.swift Sources/LocalTranslation.swift Sources/ModelChat.swift Sources/SentenceAnalysis.swift Sources/ReaderState.swift Tests/ReaderStateTests.swift \
+    Sources/Core.swift Sources/EbookImport.swift Sources/PartsOfSpeech.swift Sources/ModelDefinitions.swift Sources/DefinitionCache.swift Sources/TranslationSelection.swift Sources/TranslationMirrors.swift Sources/LocalTranslation.swift Sources/ModelChat.swift Sources/SentenceAnalysis.swift Sources/ImportedDictionaries.swift Sources/ReaderState.swift Tests/ReaderStateTests.swift \
     -lsqlite3 -framework Security -o .build/reader-tests
 .build/reader-tests
 swiftc -module-cache-path "$PWD/.build/swift-cache" \

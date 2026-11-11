@@ -32,7 +32,7 @@ import WebKit
 
 @MainActor private final class EbookJob: NSObject, WKURLSchemeHandler, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
     private static let assets: Set<String> = [
-        "/ebook-import/host.html", "/ebook-import/compat.js", "/ebook-import/worker.mjs", "/ebook-import/text.mjs", "/ebook-import/zip.mjs",
+        "/ebook-import/host.html", "/ebook-import/compat.js", "/ebook-import/worker.mjs", "/ebook-import/mdx.mjs", "/ebook-import/yomitan.mjs", "/ebook-import/text.mjs", "/ebook-import/zip.mjs",
         "/vendor/foliate/epub.js", "/vendor/foliate/epubcfi.js", "/vendor/foliate/mobi.js", "/vendor/fflate/fflate.mjs"
     ]
     private let root: URL
@@ -45,6 +45,10 @@ import WebKit
     private var watchdog: Task<Void, Never>?
     private var finished = false
     private var inputDelivered = false
+    private var dictionaryChunks: [String] = []
+    private var dictionaryLength = 0
+    private var dictionaryInputOffset = 0
+    private var importingDictionary: Bool { kind == "MDX" || kind == "ZIP" }
     private var hostURL: URL { URL(string: "yomitoki-ebook://\(host)/ebook-import/host.html")! }
 
     init(root: URL, data: Data, name: String, kind: String) {
@@ -66,14 +70,38 @@ import WebKit
         controller.addUserScript(WKUserScript(source: """
         (() => {
           const send = body => window.webkit.messageHandlers.ebook.postMessage(body);
+          let kind;
           Object.defineProperty(window, 'ebookImport', { value: Object.freeze({
             input: async () => {
               const value = await send({type: 'input'});
-              const binary = atob(value.base64), bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              kind = value.kind;
+              const bytes = new Uint8Array(value.length);
+              const copy = (base64, offset) => {
+                const binary = atob(base64);
+                for (let i = 0; i < binary.length; i++) bytes[offset + i] = binary.charCodeAt(i);
+                return binary.length;
+              };
+              if (value.base64 !== undefined) copy(value.base64, 0);
+              else {
+                for (let offset = 0; offset < bytes.length;) {
+                  offset += copy(await send({type: 'dictionary-input'}), offset);
+                }
+              }
               return { bytes: bytes.buffer, kind: value.kind, name: value.name };
             },
-            result: value => { send({type: 'result', value}).catch(() => {}); }
+            result: async value => {
+              try {
+                if (value.ok && (kind === 'ZIP' || kind === 'MDX')) {
+                  for (let i = 0; i < value.sections.length; i += 4) {
+                    await send({type: 'dictionary-chunks', chunks: value.sections.slice(i, i + 4)});
+                  }
+                  value = {ok: true};
+                }
+                await send({type: 'result', value});
+              } catch {
+                send({type: 'result', value: {ok: false, error: '词典解析结果传输失败。'}}).catch(() => {});
+              }
+            }
           }) });
           const failed = () => window.ebookImport.result({ok: false, error: '内置电子书解析器运行失败，请重新导入或检查应用完整性。'});
           window.addEventListener('error', failed);
@@ -110,17 +138,46 @@ import WebKit
               let body = message.body as? [String: Any] else { replyHandler(nil, "请求无效。"); return }
         if body["type"] as? String == "input", !inputDelivered, let data {
             inputDelivered = true
-            replyHandler(["base64": data.base64EncodedString(), "kind": kind, "name": name], nil)
-            self.data = nil
+            var input: [String: Any] = ["length": data.count, "kind": kind, "name": name]
+            if !importingDictionary {
+                input["base64"] = data.base64EncodedString()
+                self.data = nil
+            }
+            replyHandler(input, nil)
+            return
+        }
+        if body["type"] as? String == "dictionary-input", importingDictionary, inputDelivered,
+           let data, dictionaryInputOffset < data.count {
+            let end = min(dictionaryInputOffset + 1_000_000, data.count)
+            let base64 = data[dictionaryInputOffset..<end].base64EncodedString()
+            dictionaryInputOffset = end
+            if end == data.count { self.data = nil }
+            replyHandler(base64, nil)
+            return
+        }
+        if body["type"] as? String == "dictionary-chunks", importingDictionary, inputDelivered,
+           let chunks = body["chunks"] as? [String] {
+            dictionaryLength += chunks.reduce(0, { $0 + $1.utf16.count })
+            guard dictionaryLength <= 100_000_000, dictionaryChunks.count + chunks.count <= 10_000 else {
+                replyHandler(nil, "词典内容过多。")
+                finish(.failure(BookImport.Failure(message: "词典内容过多。")))
+                return
+            }
+            dictionaryChunks.append(contentsOf: chunks)
+            replyHandler(true, nil)
             return
         }
         guard body["type"] as? String == "result", inputDelivered, let value = body["value"] as? [String: Any] else {
             replyHandler(nil, "请求无效。"); return
         }
         replyHandler(true, nil)
-        if value["ok"] as? Bool == true, let sections = value["sections"] as? [String],
-           !sections.isEmpty, sections.count <= 10_000,
-           sections.reduce(0, { $0 + $1.utf16.count }) <= 10_000_000 {
+        if value["ok"] as? Bool == true, importingDictionary, !dictionaryChunks.isEmpty {
+            let sections = dictionaryChunks
+            dictionaryChunks.removeAll()
+            finish(.success(sections))
+        } else if value["ok"] as? Bool == true, !importingDictionary, let sections = value["sections"] as? [String],
+                  !sections.isEmpty, sections.count <= 10_000,
+                  sections.reduce(0, { $0 + $1.utf16.count }) <= 10_000_000 {
             finish(.success(sections))
         } else {
             let error = (value["error"] as? String).map { String($0.prefix(500)) } ?? "电子书解析失败，文件格式无效或内容过大。"

@@ -6,6 +6,7 @@ final class ReadingTextView: NSTextView {
     var onSelectionBegan: () -> Void = {}
     var onSelectionEnded: () -> Void = {}
     var onSingleClick: (NSPoint) -> Void = { _ in }
+    var onPageTurn: ((Bool) -> Void)?
     private(set) var trackingSelection = false
 
     override func mouseDown(with event: NSEvent) {
@@ -26,11 +27,28 @@ final class ReadingTextView: NSTextView {
         onSelectionEnded()
     }
 
+    override func keyDown(with event: NSEvent) {
+        if let onPageTurn, event.modifierFlags.intersection([.shift, .control, .option, .command]).isEmpty,
+           event.keyCode == 123 || event.keyCode == 124 {
+            onPageTurn(event.keyCode == 124)
+            return
+        }
+        super.keyDown(with: event)
+    }
+
 }
 
 final class SelectionActionsPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+struct ReadingPagination: Equatable {
+    let revision: UUID
+    let index: Int
+    let count: Int
+    let previousOffset: Int?
+    let nextOffset: Int?
 }
 
 struct ReadingText: NSViewRepresentable {
@@ -40,17 +58,43 @@ struct ReadingText: NSViewRepresentable {
     let fontSize: CGFloat
     let singleClickLookupEnabled: Bool
     let onTap: (Int) -> NSRange?
-    let onSelectionChange: (NSRange?) -> Void
+    let onSelectionChange: (NSRange?, Bool) -> Void
     let onDictionaryLookup: (NSRange) -> Void
     let onModelLookup: (NSRange) -> Void
     let onTranslation: (NSRange) -> Void
     let selectionLevel: (NSRange) -> TranslationSelection.Level?
     let onSentenceAnalysis: (NSRange) -> Void
     var onModelChat: (NSRange) -> Void = { _ in }
+    var searchHighlight: NSRange?
+    var pageSize: CGSize?
+    var readingOffset = 0
+    var onPagination: ((ReadingPagination) -> Void)?
+    var onPageTurn: ((Bool) -> Void)?
+    var onReadingProgress: ((Int, UUID) -> Void)?
+
+    static func pageStarts(for text: NSAttributedString, size: CGSize) -> [Int] {
+        let storage = NSTextStorage(attributedString: text)
+        let layout = NSLayoutManager()
+        let container = NSTextContainer(containerSize: CGSize(width: max(11, size.width - 8),
+                                                              height: .greatestFiniteMagnitude))
+        layout.addTextContainer(container)
+        storage.addLayoutManager(layout)
+        let glyphs = layout.glyphRange(for: container)
+        var starts = [0]
+        var pageTop: CGFloat = 0
+        layout.enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, line, _ in
+            guard line.location > 0, rect.maxY - pageTop > max(1, size.height - 24) else { return }
+            let offset = layout.characterRange(forGlyphRange: line, actualGlyphRange: nil).location
+            guard offset > (starts.last ?? 0), offset < text.length else { return }
+            starts.append(offset)
+            pageTop = rect.minY
+        }
+        return starts
+    }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var onTap: (Int) -> NSRange? = { _ in nil }
-        var onSelectionChange: (NSRange?) -> Void = { _ in }
+        var onSelectionChange: (NSRange?, Bool) -> Void = { _, _ in }
         var onDictionaryLookup: (NSRange) -> Void = { _ in }
         var onModelLookup: (NSRange) -> Void = { _ in }
         var onTranslation: (NSRange) -> Void = { _ in }
@@ -61,6 +105,15 @@ struct ReadingText: NSViewRepresentable {
         var revision: UUID?
         var fontSize: CGFloat = 0
         var selection: NSRange?
+        var searchMatch: NSRange?
+        var pageSize: CGSize?
+        var pageStarts = [0]
+        var visibleRange: NSRange?
+        var pagination: ReadingPagination?
+        var attributedText = NSAttributedString()
+        var requestedReadingOffset: Int?
+        var appliedReadingOffset: Int?
+        var onReadingProgress: ((Int, UUID) -> Void)?
         var singleClickLookupEnabled = false
         private weak var textView: ReadingTextView?
         private var panel: SelectionActionsPanel?
@@ -78,11 +131,13 @@ struct ReadingText: NSViewRepresentable {
             dismissActions()
             let range = view.selectedRange()
             guard range.length > 0, let selected = Range(range, in: view.string) else {
-                onSelectionChange(nil)
+                onSelectionChange(nil, false)
                 return
             }
-            let hasLetters = view.string[selected].unicodeScalars.contains { CharacterSet.letters.contains($0) }
-            onSelectionChange(hasLetters ? range : nil)
+            let text = view.string[selected]
+            let hasLetters = text.unicodeScalars.contains { CharacterSet.letters.contains($0) }
+            let canQuote = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            onSelectionChange(canQuote ? range : nil, hasLetters)
             if showActions, hasLetters { scheduleActions(range, in: view) }
         }
 
@@ -117,13 +172,50 @@ struct ReadingText: NSViewRepresentable {
             }
             scroll.contentView.postsBoundsChangedNotifications = true
             observers.append(NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification,
-                object: scroll.contentView, queue: .main) { [weak self] _ in self?.dismissActions() })
+                object: scroll.contentView, queue: .main) { [weak self, weak scroll] _ in
+                    self?.dismissActions()
+                    if let scroll { self?.recordScroll(in: scroll) }
+                })
             observers.append(NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification,
                 object: nil, queue: .main) { [weak self] notification in
                     if let window = notification.object as? NSWindow, window === self?.textView?.window {
                         self?.dismissActions()
                     }
                 })
+        }
+
+        private func recordScroll(in scroll: NSScrollView) {
+            guard !updating, pageSize == nil, let revision, let view = textView,
+                  let layout = view.layoutManager, let container = view.textContainer,
+                  let onReadingProgress else { return }
+            let top = scroll.documentVisibleRect.minY - view.textContainerOrigin.y
+            let offset = top <= 0 ? 0 : layout.characterIndex(
+                for: NSPoint(x: container.lineFragmentPadding, y: top), in: container,
+                fractionOfDistanceBetweenInsertionPoints: nil)
+            guard offset != appliedReadingOffset else { return }
+            appliedReadingOffset = offset
+            onReadingProgress(offset, revision)
+        }
+
+        func restoreScroll(_ offset: Int, in scroll: NSScrollView, view: NSTextView) {
+            appliedReadingOffset = offset
+            guard offset > 0, let layout = view.layoutManager, let container = view.textContainer,
+                  let length = view.textStorage?.length, length > 0 else {
+                view.scrollToBeginningOfDocument(nil)
+                return
+            }
+            layout.ensureLayout(for: container)
+            let character = min(offset, length - 1)
+            let glyph = layout.glyphIndexForCharacter(at: character)
+            let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
+            // Ensure the text view has sized itself before moving the clip view to this line.
+            view.scrollRangeToVisible(NSRange(location: character, length: 1))
+            let clip = scroll.contentView
+            let bounds = clip.constrainBoundsRect(NSRect(
+                origin: NSPoint(x: clip.bounds.minX, y: line.minY + view.textContainerOrigin.y),
+                size: clip.bounds.size))
+            clip.scroll(to: bounds.origin)
+            scroll.reflectScrolledClipView(clip)
         }
 
         private func scheduleActions(_ range: NSRange, in view: ReadingTextView) {
@@ -140,8 +232,9 @@ struct ReadingText: NSViewRepresentable {
                 guard !rect.isNull, !rect.isEmpty else { return }
                 let screenRect = window.convertToScreen(view.convert(rect, to: nil))
                 let frame = window.screen?.visibleFrame ?? screenRect.insetBy(dx: -400, dy: -200)
-                guard let level = self.selectionLevel(range) else { return }
-                let panelWidth = max(140, CGFloat(level.actions.count) * 116 + 12)
+                let buttons = (self.selectionLevel(range)?.actions ?? []).map { self.button(for: $0) }
+                guard !buttons.isEmpty else { return }
+                let panelWidth = max(140, CGFloat(buttons.count) * 116 + 12)
                 let panel = SelectionActionsPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 44),
                     styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
                 panel.becomesKeyOnlyIfNeeded = true
@@ -158,7 +251,7 @@ struct ReadingText: NSViewRepresentable {
                 background.wantsLayer = true
                 background.layer?.cornerRadius = 10
                 background.layer?.masksToBounds = true
-                let stack = NSStackView(views: level.actions.map { self.button(for: $0) })
+                let stack = NSStackView(views: buttons)
                 stack.orientation = .horizontal
                 stack.alignment = .centerY
                 stack.spacing = 10
@@ -255,7 +348,7 @@ struct ReadingText: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSScrollView {
         let scroll = NSScrollView()
-        scroll.hasVerticalScroller = true
+        scroll.hasVerticalScroller = pageSize == nil
         scroll.autohidesScrollers = true
         scroll.drawsBackground = false
         let view = ReadingTextView(frame: scroll.contentView.bounds)
@@ -282,46 +375,107 @@ struct ReadingText: NSViewRepresentable {
         guard let view = scroll.documentView as? ReadingTextView, let storage = view.textStorage else { return }
         let coordinator = context.coordinator
         coordinator.updating = true
+        coordinator.onReadingProgress = onReadingProgress
         defer { coordinator.updating = false }
-        coordinator.onTap = onTap
-        coordinator.singleClickLookupEnabled = singleClickLookupEnabled
-        coordinator.onSelectionChange = onSelectionChange
-        coordinator.onDictionaryLookup = onDictionaryLookup
-        coordinator.onModelLookup = onModelLookup
-        coordinator.onTranslation = onTranslation
-        coordinator.selectionLevel = selectionLevel
-        coordinator.onSentenceAnalysis = onSentenceAnalysis
-        coordinator.onModelChat = onModelChat
-        view.setAccessibilityLabel(singleClickLookupEnabled
-            ? "日语正文，单击自动查词，选词可查释义，句段可本地翻译，单句可长句分析，按 ⌘C 复制"
-            : "日语正文，选词可查释义，句段可本地翻译，单句可长句分析，按 ⌘C 复制")
         let newPage = coordinator.revision != revision
-        if newPage { coordinator.dismissActions() }
-        if newPage || coordinator.fontSize != fontSize {
-            let selectedRange = newPage ? NSRange(location: 0, length: 0) : view.selectedRange()
+        let newText = newPage || coordinator.fontSize != fontSize
+        if newText {
             let paragraph = NSMutableParagraphStyle()
             paragraph.lineSpacing = 10
             paragraph.paragraphSpacing = 7
             let font = NSFont(name: "HiraginoSans-W3", size: fontSize) ?? .systemFont(ofSize: fontSize)
-            let display = bodyText.isEmpty ? "此页没有可提取的文字。" : bodyText
-            storage.setAttributedString(NSAttributedString(string: display, attributes: [
-                .font: font,
-                .foregroundColor: AppTheme.textColor,
-                .paragraphStyle: paragraph
-            ]))
+            coordinator.attributedText = NSAttributedString(
+                string: bodyText.isEmpty ? "此页没有可提取的文字。" : bodyText,
+                attributes: [.font: font, .foregroundColor: AppTheme.textColor, .paragraphStyle: paragraph])
+        }
+        if let pageSize, newText || coordinator.pageSize != pageSize {
+            coordinator.pageStarts = Self.pageStarts(for: coordinator.attributedText, size: pageSize)
+        }
+        let starts = coordinator.pageStarts
+        let index = pageSize == nil ? 0 : (starts.lastIndex { $0 <= readingOffset } ?? 0)
+        let start = pageSize == nil ? 0 : starts[index]
+        let next = pageSize != nil && index + 1 < starts.count ? starts[index + 1] : nil
+        let visible = NSRange(location: start, length: (next ?? coordinator.attributedText.length) - start)
+        let changedSlice = coordinator.visibleRange != visible
+        coordinator.pageSize = pageSize
+        coordinator.visibleRange = visible
+        if let onPagination, pageSize != nil {
+            let pagination = ReadingPagination(revision: revision, index: index, count: starts.count,
+                previousOffset: index > 0 ? starts[index - 1] : nil, nextOffset: next)
+            if pagination != coordinator.pagination {
+                coordinator.pagination = pagination
+                DispatchQueue.main.async { [weak coordinator] in
+                    if coordinator?.pagination == pagination { onPagination(pagination) }
+                }
+            }
+        } else { coordinator.pagination = nil }
+        let sourceRange: (NSRange) -> NSRange = { NSRange(location: $0.location + start, length: $0.length) }
+        let localRange: (NSRange) -> NSRange? = { range in
+            guard range.location >= start, NSMaxRange(range) <= NSMaxRange(visible) else { return nil }
+            return NSRange(location: range.location - start, length: range.length)
+        }
+        coordinator.onTap = { onTap($0 + start).flatMap(localRange) }
+        coordinator.singleClickLookupEnabled = singleClickLookupEnabled
+        coordinator.onSelectionChange = { range, hasLetters in
+            onSelectionChange(range.map(sourceRange), hasLetters)
+        }
+        coordinator.onDictionaryLookup = { onDictionaryLookup(sourceRange($0)) }
+        coordinator.onModelLookup = { onModelLookup(sourceRange($0)) }
+        coordinator.onTranslation = { onTranslation(sourceRange($0)) }
+        coordinator.selectionLevel = { selectionLevel(sourceRange($0)) }
+        coordinator.onSentenceAnalysis = { onSentenceAnalysis(sourceRange($0)) }
+        coordinator.onModelChat = { onModelChat(sourceRange($0)) }
+        view.setAccessibilityLabel(singleClickLookupEnabled
+            ? "日语正文，单击自动查词，选词可查释义，句段可本地翻译，单句可长句分析，按 ⌘C 复制"
+            : "日语正文，选词可查释义，句段可本地翻译，单句可长句分析，按 ⌘C 复制")
+        scroll.hasVerticalScroller = pageSize == nil
+        scroll.verticalScrollElasticity = pageSize == nil ? .automatic : .none
+        view.onPageTurn = pageSize == nil ? nil : onPageTurn
+        view.isVerticallyResizable = pageSize == nil
+        if let pageSize {
+            view.frame.size = pageSize
+        }
+        if newText || changedSlice {
+            coordinator.dismissActions()
+            let previousSelection = view.selectedRange()
+            let selectedRange = newPage || changedSlice ? NSRange(location: 0, length: 0) : previousSelection
+            storage.setAttributedString(coordinator.attributedText.attributedSubstring(from: visible))
             if NSMaxRange(selectedRange) <= storage.length { view.setSelectedRange(selectedRange) }
             coordinator.revision = revision
             coordinator.fontSize = fontSize
             coordinator.selection = nil
-            if newPage { view.scrollToBeginningOfDocument(nil) }
+            coordinator.searchMatch = nil
+            if pageSize != nil, newPage || changedSlice { view.scrollToBeginningOfDocument(nil) }
+            if changedSlice && !newPage && previousSelection.length > 0 {
+                DispatchQueue.main.async { [weak coordinator, weak view] in
+                    guard let coordinator, coordinator.revision == revision, coordinator.visibleRange == visible,
+                          view?.selectedRange().length == 0 else { return }
+                    coordinator.onSelectionChange(nil, false)
+                }
+            }
         }
-        if coordinator.selection != selection {
+        if pageSize == nil {
+            let changedOffset = coordinator.requestedReadingOffset != readingOffset
+            if newPage || changedOffset && coordinator.appliedReadingOffset != readingOffset {
+                coordinator.restoreScroll(readingOffset, in: scroll, view: view)
+            } else if newText {
+                coordinator.restoreScroll(coordinator.appliedReadingOffset ?? readingOffset, in: scroll, view: view)
+            }
+            coordinator.requestedReadingOffset = readingOffset
+        }
+        let match = searchHighlight.map { NSIntersectionRange($0, visible) }
+            .flatMap { $0.length > 0 ? localRange($0) : nil }
+        let selection = match ?? selection.flatMap(localRange)
+        if coordinator.selection != selection || coordinator.searchMatch != match {
             if let old = coordinator.selection, NSMaxRange(old) <= storage.length { storage.removeAttribute(.backgroundColor, range: old) }
             if let selection, NSMaxRange(selection) <= storage.length {
                 storage.addAttribute(.backgroundColor,
-                    value: AppTheme.selectionColor, range: selection)
+                    value: match == nil ? AppTheme.selectionColor : NSColor(calibratedRed: 1, green: 0.86, blue: 0.49, alpha: 1),
+                    range: selection)
             }
             coordinator.selection = selection
+            coordinator.searchMatch = match
+            if let match, pageSize == nil { view.scrollRangeToVisible(match) }
         }
     }
 }

@@ -18,7 +18,7 @@ def bundle(app):
     shutil.copytree(source / "vendor", target / "vendor", dirs_exist_ok=True)
     worker = target / "ebook-import"
     worker.mkdir(exist_ok=True)
-    for name in ["worker.mjs", "zip.mjs", "text.mjs"]:
+    for name in ["worker.mjs", "zip.mjs", "text.mjs", "mdx.mjs", "yomitan.mjs"]:
         shutil.copy2(source / "ebook-import" / name, worker / name)
     for name in ["host.html", "compat.js"]:
         shutil.copy2(ROOT / "Resources/Ebook" / name, worker / name)

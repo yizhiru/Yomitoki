@@ -32,7 +32,7 @@ enum NotebookExportField: String, CaseIterable {
         case .chinese: return definition.chinese ?? ""
         case .english: return definition.english ?? ""
         case .etymology: return definition.etymology ?? ""
-        case .source: return definition.source ?? (definition.hasMeaning ? "离线词典" : "")
+        case .source: return definition.source ?? definition.dictionaryName ?? (definition.hasMeaning ? "离线词典" : "")
         case .surface: return occurrence?.context.word ?? ""
         case .sentence: return occurrence?.context.sentence ?? ""
         case .filename: return occurrence?.filename ?? ""

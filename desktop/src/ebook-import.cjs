@@ -10,8 +10,9 @@ async function readEbook(file, { signal, parent, timeoutMs = 30000 } = {}) {
   if (!BrowserWindow) throw new Error('电子书导入需要在应用内运行。');
   if (active) throw new Error('已有电子书正在导入，请等待或取消。');
   const id = randomUUID(), inputChannel = 'ebook:input:' + id, resultChannel = 'ebook:result:' + id;
+  const kind = path.extname(file).slice(1).toUpperCase();
   const entry = path.join(__dirname, 'ebook-import/host.html');
-  const allowed = new Set(['host.html', 'worker.mjs', 'zip.mjs', 'text.mjs'].map(name => pathToFileURL(path.join(__dirname, 'ebook-import', name)).href));
+  const allowed = new Set(['host.html', 'worker.mjs', 'zip.mjs', 'text.mjs', 'mdx.mjs', 'yomitan.mjs'].map(name => pathToFileURL(path.join(__dirname, 'ebook-import', name)).href));
   for (const relative of ['foliate/epub.js', 'foliate/epubcfi.js', 'foliate/mobi.js', 'fflate/fflate.mjs']) allowed.add(pathToFileURL(path.join(__dirname, 'vendor', relative)).href);
   const host = new BrowserWindow({ show: false, parent, webPreferences: {
     preload: path.join(__dirname, 'ebook-import/preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false,
@@ -38,14 +39,14 @@ async function readEbook(file, { signal, parent, timeoutMs = 30000 } = {}) {
       if (!info.isFile() || info.size > 300000000) throw new Error('文件无效或超过 300 MB。');
       const bytes = await fs.readFile(file, { signal });
       if (settled) throw new Error('已取消导入。');
-      return { bytes: new Uint8Array(bytes), kind: path.extname(file).slice(1).toUpperCase(), name: path.basename(file) };
+      return { bytes: new Uint8Array(bytes), kind, name: path.basename(file) };
     });
     const result = (event, value) => {
       if (!trusted(event)) return;
       if (!value?.ok) { finish(new Error(typeof value?.error === 'string' ? value.error.slice(0, 300) : '电子书导入失败。')); return; }
       if (!Array.isArray(value.sections) || !value.sections.length || value.sections.length > 10000
         || !value.sections.every(text => typeof text === 'string')
-        || value.sections.reduce((sum, text) => sum + text.length, 0) > 10000000) { finish(new Error('电子书正文无效或内容过多。')); return; }
+        || value.sections.reduce((sum, text) => sum + text.length, 0) > ((kind === 'MDX' || kind === 'ZIP') ? 100000000 : 10000000)) { finish(new Error('电子书正文无效或内容过多。')); return; }
       finish(null, value.sections);
     };
     ipcMain.on(resultChannel, result);

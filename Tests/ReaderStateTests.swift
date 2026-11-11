@@ -61,6 +61,26 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
             try require(context.word == "喫茶店", "Explicit lookup retains exact selected text")
             return Definition(head: "喫茶店", reading: "きっさてん", chinese: "本句指避雨的小咖啡馆。", english: nil, source: "test")
         }
+        let legacyLibrary = """
+        {"books":[],"words":[],"current":"\(state.book.id)"}
+        """
+        let decodedLibrary = try JSONDecoder().decode(LibraryData.self, from: Data(legacyLibrary.utf8))
+        try require(decodedLibrary.notes.isEmpty, "Existing libraries load without a notes field")
+        let empty = ReadingNote(bookID: state.book.id, page: 1, excerpt: nil, body: "")
+        try require(!state.saveNote(empty), "Reject a note without content")
+        var note = ReadingNote(bookID: state.book.id, page: 1, excerpt: "珈琲", body: "")
+        try require(state.saveNote(note), "Save an excerpt without a note body")
+        note.body = "复习这段的时态"
+        try require(state.saveNote(note), "Edit the saved note")
+        let restoredNotes = ReaderState(directory: root, resources: root)
+        try require(restoredNotes.library.notes.count == 1 && restoredNotes.library.notes.first?.body == note.body
+                    && restoredNotes.library.notes.first?.excerpt == "珈琲", "Note and excerpt survive reload")
+        state.destination = .notes
+        state.openBook(note.bookID, page: note.page)
+        try require(state.destination == .reading && state.book.page == 1, "Return from notes to the source page")
+        state.deleteNote(note.id)
+        try require(state.library.notes.isEmpty, "Delete the note")
+        state.showPage(0)
         let range = (state.book.pages[0] as NSString).range(of: "喫茶店")
         state.choose(range.location)
         try require(!state.querying && requests == 0 && state.lookup?.definition.source == nil,
@@ -132,6 +152,16 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         state.analyzeSelection(sentenceRange)
         try await waitForAnalysis(state)
         try require(state.sentenceAnalysis.reused && analysisRequests == 1, "Reader reuses cached sentence analysis")
+        let analysisArchive = SentenceAnalysisState(directory: root)
+        try require(analysisArchive.history.count == 1, "A cached analysis does not duplicate the archive entry")
+        if let entry = analysisArchive.history.first {
+            try require(entry.bookID == state.book.id && entry.page == 0 && entry.offset == sentenceRange.location,
+                        "The archive restores the book and location")
+            analysisArchive.show(entry)
+            try require(analysisArchive.result == analysis && !analysisArchive.canRetry, "Opening an archive entry restores the result")
+            analysisArchive.delete(entry.id)
+            try require(SentenceAnalysisState(directory: root).history.isEmpty, "Archive deletion persists")
+        }
         state.showPage(1)
         try require(state.sentenceAnalysis.source == nil && !state.sentenceAnalysis.analyzing, "Page change dismisses analysis")
         state.showPage(0)
@@ -206,6 +236,29 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         try FileManager.default.removeItem(at: deletionPath)
         deleting.remove(remaining)
         try require(deleting.library.words.isEmpty && deleting.selectedWord == nil, "Deleting the final word clears selection")
+        let progressDirectory = root.appendingPathComponent("reading-progress")
+        try FileManager.default.createDirectory(at: progressDirectory, withIntermediateDirectories: true)
+        let firstBook = Book(name: "第一冊", kind: "EPUB", pages: ["最初の節", "次の節の読みかけの文章"])
+        let secondBook = Book(name: "第二冊", kind: "PDF", pages: ["長いページの読みかけの文章"])
+        let progressLibrary = LibraryData(books: [firstBook, secondBook], words: [], current: firstBook.id)
+        try JSONEncoder().encode(progressLibrary).write(to: progressDirectory.appendingPathComponent("library.json"))
+        let reading = ReaderState(directory: progressDirectory, resources: root)
+        try require(reading.readingOffset == 0, "Books without an offset start at the beginning of their saved section")
+        reading.turnReadingPage(section: 1, offset: 4)
+        reading.openBook(secondBook.id)
+        let previousRevision = reading.revision
+        reading.recordReadingProgress(6, revision: previousRevision)
+        reading.openBook(firstBook.id)
+        try require(reading.book.page == 1 && reading.readingOffset == 4, "Switching books restores the EPUB section and text offset")
+        reading.recordReadingProgress(2, revision: previousRevision)
+        reading.openBook(secondBook.id)
+        try require(reading.readingOffset == 6, "Switching books flushes the pending scroll position")
+        let restoredReading = ReaderState(directory: progressDirectory, resources: root)
+        try require(restoredReading.book.id == secondBook.id && restoredReading.readingOffset == 6,
+                    "Restart restores the last book and scroll position")
+        restoredReading.openBook(firstBook.id)
+        try require(restoredReading.book.page == 1 && restoredReading.readingOffset == 4,
+                    "Other books retain their own positions after restart")
         print("Passed reader actions, cache, cancellation, word deletion persistence, and failed-write preservation checks.")
     }
 }

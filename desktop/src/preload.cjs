@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('yomitoki', {
     if (!response.ok) throw new Error(response.error);
     return response.value;
   },
+  flushReadingProgress: input => ipcRenderer.sendSync('yomitoki:flush-reading-progress', input),
   onProgress: callback => {
     const handler = (_event, progress) => callback(progress);
     ipcRenderer.on('model-progress', handler);

@@ -4,15 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>读解 · 日语深度阅读</title>
+  <title>读解</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="workspace">
     <aside id="sidebar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">▤</span><div><strong>读解</strong><small>日语深度阅读</small></div></div>
-      <nav><button id="reading-tab" class="active">阅读</button><button id="notebook-tab">生词本</button></nav>
-      <div class="section-title"><span>书架</span><button id="import" class="plain">＋ 导入</button><button id="cancel-import" hidden>取消导入</button></div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">▤</span><strong>读解</strong></div>
+      <nav><button id="reading-tab" class="active">阅读</button><button id="notebook-tab">生词本</button><button id="notes-tab">笔记本</button></nav>
+      <div class="section-title">书架</div>
+      <button id="import">导入</button>
+      <button id="cancel-import" hidden>取消导入</button>
       <div id="books"></div>
       <button id="settings-button" class="settings-entry">设置</button>
       <small id="version"></small>
@@ -20,10 +22,29 @@
     <div class="splitter" id="sidebar-split" role="separator" aria-label="调整书架宽度" aria-orientation="vertical" tabindex="0"></div>
     <main>
       <header><div><h1 id="book-title">正在准备词典…</h1><span id="book-location" class="muted"></span></div>
-        <div class="header-actions"><button id="previous" title="上一页或节">←</button><input id="page-number" type="number" min="1" aria-label="跳转到页或节"><button id="next" title="下一页或节">→</button></div>
+        <div class="header-actions"><button id="open-reading-search" title="搜索书籍" aria-expanded="false" aria-controls="reading-search">搜索</button><button id="write-note" title="写笔记，可附上所选原文" aria-label="写笔记">✎</button><button id="previous" title="上一页或节">←</button><input id="page-number" type="number" min="1" aria-label="跳转到页或节"><button id="next" title="下一页或节">→</button></div>
       </header>
+      <form id="reading-search" role="search" aria-label="书内搜索" hidden>
+        <input id="reading-query" type="search" placeholder="搜索当前书籍" aria-label="搜索当前书籍">
+        <button type="submit">搜索</button>
+        <span id="reading-search-status" role="status"></span>
+        <button type="button" id="previous-match" aria-label="上一处" disabled>↑</button>
+        <button type="button" id="next-match" aria-label="下一处" disabled>↓</button>
+        <button type="button" id="close-reading-search" aria-label="关闭搜索">×</button>
+      </form>
       <div id="reading-scroll"><article id="reader" lang="ja" tabindex="0"></article></div>
       <section id="notebook" hidden><div class="notebook-tools"><input id="word-search" type="search" placeholder="搜索单词、读音或释义"><button id="export-button">导出…</button></div><div id="words"></div></section>
+      <section id="notes" hidden>
+        <aside id="notes-books" aria-label="按书浏览笔记"></aside>
+        <div id="notes-content">
+          <div class="notes-heading"><h2 id="notes-book-title"></h2><button id="new-note">新建笔记</button></div>
+          <label>记录类型
+            <select id="notes-kind"><option value="notes">笔记</option><option value="analyses">长句分析</option><option value="chats">大模型对话</option></select>
+          </label>
+          <input id="notes-search" type="search" placeholder="搜索全部笔记" aria-label="搜索全部笔记">
+          <div id="note-list"></div>
+        </div>
+      </section>
     </main>
     <div class="splitter" id="detail-split" role="separator" aria-label="调整释义宽度" aria-orientation="vertical" tabindex="0"></div>
     <aside id="detail"><div id="detail-body"><p class="empty">选中文字，开始读解。<br><small>单词查释义，句子做分析，段落可翻译。</small></p></div></aside>
@@ -37,6 +58,11 @@
         <label class="toggle"><input id="single-click" type="checkbox">单击自动查词</label><small class="muted">关闭后，选中文字并点击释义按钮才查询。使用 Ctrl+C 复制。</small>
         <label>正文字号 <output id="font-value"></output><input id="font-size" type="range" min="16" max="40"></label>
         <label>释义字号 <output id="definition-value"></output><input id="definition-size" type="range" min="14" max="30"></label>
+      </section>
+      <section><h3>本地词典</h3>
+        <label>释义词典<select id="dictionary-source"></select></label>
+        <button id="import-dictionary">导入词典…</button>
+        <small id="dictionary-status" class="muted" role="status"></small>
       </section>
       <section><h3>大模型</h3>
         <label>服务商<select id="provider"><option value="deepseek">DeepSeek</option><option value="custom">自定义（OpenAI 兼容）</option></select></label>
@@ -63,6 +89,16 @@
     <label>格式<select id="export-format"><option value="csv">CSV 表格</option><option value="txt">纯文本 TXT</option></select></label>
     <label>范围<select id="export-scope"><option value="all">全部生词</option><option value="filtered">当前搜索结果</option></select></label>
     <fieldset id="export-fields"><legend>单词始终导出，其他字段按需选择</legend></fieldset><button id="export-confirm" class="primary">导出…</button>
+  </dialog>
+  <dialog id="note-dialog" aria-labelledby="note-dialog-title">
+    <form id="note-form">
+      <div class="dialog-heading"><h2 id="note-dialog-title">笔记</h2></div>
+      <p id="note-location" class="muted"></p>
+      <blockquote id="note-excerpt" class="note-excerpt" hidden></blockquote>
+      <label><span id="note-body-label">笔记正文</span><textarea id="note-body" rows="7" required></textarea></label>
+      <p id="note-error" role="alert" hidden></p>
+      <div class="button-row"><button type="button" id="cancel-note">取消</button><button class="primary" id="save-note">保存</button></div>
+    </form>
   </dialog>
   <script src="app.js"></script>
 </body>

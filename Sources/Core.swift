@@ -9,6 +9,11 @@ struct Book: Codable, Identifiable {
     let kind: String
     let pages: [String]
     var page = 0
+    var readingOffset: Int? = nil
+
+    func clampedReadingOffset(_ offset: Int) -> Int {
+        min(max(0, offset), max(0, pages[page].utf16.count - 1))
+    }
     var title: String { (name as NSString).deletingPathExtension }
     var unit: String { kind == "PDF" ? "页" : "节" }
 
@@ -37,7 +42,9 @@ struct Definition: Codable, Equatable {
     let english: String?
     var source: String? = nil
     var etymology: String? = nil
-    var hasMeaning: Bool { chinese != nil || english != nil }
+    var dictionaryName: String? = nil
+    var dictionaryText: String? = nil
+    var hasMeaning: Bool { chinese != nil || english != nil || dictionaryText != nil }
     var chineseMeaning: String? {
         guard let text = chinese?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
         return text
@@ -103,11 +110,39 @@ struct Lookup {
     var range: NSRange { NSRange(location: occurrence.offset, length: occurrence.context.word.utf16.count) }
 }
 
+struct ReadingNote: Codable, Identifiable {
+    var id = UUID()
+    let bookID: UUID
+    let page: Int
+    let excerpt: String?
+    var body: String
+
+    var hasBody: Bool { !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    var hasExcerpt: Bool { !(excerpt ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+}
+
 struct LibraryData: Codable {
     var books: [Book]
     var words: [SavedWord]
     var current: UUID
+    var notes: [ReadingNote] = []
     static var initial: Self { .init(books: [.sample], words: [], current: Book.sample.id) }
+
+    private enum CodingKeys: String, CodingKey { case books, words, current, notes }
+
+    init(books: [Book], words: [SavedWord], current: UUID) {
+        self.books = books
+        self.words = words
+        self.current = current
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        books = try values.decode([Book].self, forKey: .books)
+        words = try values.decode([SavedWord].self, forKey: .words)
+        current = try values.decode(UUID.self, forKey: .current)
+        notes = try values.decodeIfPresent([ReadingNote].self, forKey: .notes) ?? []
+    }
 }
 
 enum BookImport {
@@ -219,7 +254,7 @@ final class Lexicon {
     }
 
     func addingDictionaryEnglish(to value: Definition) -> Definition {
-        guard value.english == nil,
+        guard value.dictionaryName == nil, value.english == nil,
               let entry = entries(value.head).first(where: { $0.reading == value.reading }) else { return value }
         return Definition(head: value.head, reading: value.reading, chinese: value.chinese,
                           english: definition(entry).english, source: value.source, etymology: value.etymology)
@@ -317,7 +352,8 @@ final class Lexicon {
             ?? (exact.isEmpty ? inflectedEntry(head) : nil)
         return Definition(head: entry?.head ?? head, reading: entry?.reading ?? reading,
                           chinese: value.chinese, english: value.english,
-                          source: value.source, etymology: value.etymology)
+                          source: value.source, etymology: value.etymology,
+                          dictionaryName: value.dictionaryName, dictionaryText: value.dictionaryText)
     }
 
     func normalizedWords(_ words: [SavedWord]) -> [SavedWord] {

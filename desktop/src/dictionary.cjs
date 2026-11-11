@@ -54,6 +54,41 @@ class Dictionary {
     return null;
   }
 }
+class ImportedDictionary {
+  constructor(info, chunks) {
+    this.info = info;
+    this.entries = new Map();
+    for (const chunk of chunks) {
+      for (const [head, text] of Object.entries(JSON.parse(chunk))) this.entries.set(head, text);
+    }
+    if (!this.entries.size) throw new Error('词典没有可读取的词条。');
+  }
+  meaning(forms, reading = '') {
+    const kana = hira(reading.normalize('NFKC'));
+    const keys = forms.filter(Boolean).flatMap(form => {
+      const normalized = form.normalize('NFKC');
+      return kana ? [normalized + '\n' + kana, form, normalized] : [form, normalized];
+    });
+    for (const candidate of keys) {
+      let key = candidate;
+      const seen = new Set();
+      while (key && !seen.has(key)) {
+        const text = this.entries.get(key);
+        if (!text) break;
+        if (!text.startsWith('@@@LINK=')) return text;
+        seen.add(key);
+        key = text.slice(8).trim();
+      }
+    }
+    return '';
+  }
+  lookup(text, definition) {
+    return {
+      head: definition.head, reading: definition.reading, pos: definition.pos,
+      dictionaryName: this.info.name, dictionaryText: this.meaning([text.trim(), definition.head, definition.reading], definition.reading)
+    };
+  }
+}
 function selectionLevel(text, start, end, tokenizer, dictionaryWord = () => false) {
   if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > text.length || end <= start) throw new Error('选区无效。');
   const selected = text.slice(start, end).trim();
@@ -68,4 +103,4 @@ function selectionLevel(text, start, end, tokenizer, dictionaryWord = () => fals
   if (dictionaryWord(selected) || tokens.length === 1 || (content.length === 1 && !tokens.some(token => token.pos === '助詞'))) return 'word';
   return 'fragment';
 }
-module.exports = { Dictionary, selectionLevel, hira };
+module.exports = { Dictionary, ImportedDictionary, selectionLevel, hira };

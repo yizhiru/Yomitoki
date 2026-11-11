@@ -8,6 +8,15 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
 @main struct ReadingInteractionTests {
     @MainActor static func main() throws {
         _ = NSApplication.shared
+        let chapter = String(repeating: "駅まで歩いた。☕️ 明日もここで会おう。\n\n", count: 60)
+        let styledChapter = NSAttributedString(string: chapter, attributes: [.font: NSFont.systemFont(ofSize: 26)])
+        let smallPages = ReadingText.pageStarts(for: styledChapter, size: CGSize(width: 280, height: 240))
+        let largePages = ReadingText.pageStarts(for: styledChapter, size: CGSize(width: 560, height: 480))
+        try require(smallPages.count > largePages.count && largePages.count > 1, "EPUB page count follows viewport size")
+        let slices = zip(smallPages, smallPages.dropFirst() + [styledChapter.length]).compactMap { start, end in
+            Range(NSRange(location: start, length: end - start), in: chapter).map { String(chapter[$0]) }
+        }
+        try require(slices.count == smallPages.count && slices.joined() == chapter, "Screen pages preserve all Unicode text")
         let source = "雨が上がった。私は喫茶店に入った。\n\n寒い。\n\n明日は駅へ行く"
         for selected in ["雨が上がった。", "雨が上がった", "私は喫茶店に入った。", "雨が上がった。私は喫茶店に入った。", "寒い。", "明日は駅へ行く", source] {
             let range = (source as NSString).range(of: selected)
@@ -55,7 +64,7 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         var lookups = 0
         var lastSelection: NSRange?
         coordinator.onTap = { _ in lookups += 1; return NSRange(location: 0, length: 99) }
-        coordinator.onSelectionChange = { lastSelection = $0 }
+        coordinator.onSelectionChange = { range, _ in lastSelection = range }
         for text in ["上がった", "がった", "傘を閉じて小さな", "☕️", "、", " "] {
             let range = (view.string as NSString).range(of: text)
             view.setSelectedRange(range)

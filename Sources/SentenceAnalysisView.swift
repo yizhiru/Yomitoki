@@ -36,13 +36,14 @@ struct SentenceAnalysisView: View {
                         if !result.grammarPoints.isEmpty { items("语法难点", values: result.grammarPoints) }
                         if !result.notes.isEmpty { section("补充说明", text: result.notes) }
                         if analysis.reused { Text("已读取本地分析缓存").font(AppTheme.captionFont).foregroundStyle(.secondary) }
-                        Button("重新分析", action: analysis.retry)
+                        if analysis.canRetry { Button("重新分析", action: analysis.retry) }
                     }
                     if let failure = analysis.failure {
                         Text(failure).font(.system(size: 15)).foregroundStyle(.red).textSelection(.enabled)
                         HStack { Button("重试", action: analysis.retry); SettingsLink { Text("大模型设置") } }
                     }
                     if let warning = analysis.cacheWarning { Text(warning).font(AppTheme.captionFont).foregroundStyle(.secondary) }
+                    if let warning = analysis.historyWarning { Text(warning).font(AppTheme.captionFont).foregroundStyle(.secondary) }
                     Divider()
                     section("日语原文", text: analysis.source ?? "")
                     Text("使用「设置 → 大模型」中的 API 服务，按服务商规则计费。AI 分析可能存在错误。")

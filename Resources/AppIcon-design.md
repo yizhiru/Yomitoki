@@ -1,8 +1,8 @@
 # 读解应用图标
 
-以展开的书页代表阅读，以一笔朱红色高亮代表细读、理解和探究。深靛蓝与米白色形成清晰对比，避免文字在小尺寸下变得难以辨认。圆角底板外保留透明区域。
+以展开的书页代表阅读，以右页的一道留白表示阅读高亮。浅灰紫底板搭配深灰靛蓝书页，用双色保持小尺寸下的清晰对比。书页约占底板宽度的四分之三。圆角底板外保留透明区域。
 
-- 生成方式：内置 image_gen 工具，透明背景。
+- 生成方式：内置 image_gen 工具，基于原图调整配色和书页比例，保留透明背景。
 - 源图：`Resources/AppIcon.png`。
 - 构建：`scripts/build_icon.sh` 生成 16、32、128、256、512 点的标准和 Retina 图标，最高分辨率为 1024 × 1024，打包到应用的 `Contents/Resources/AppIcon.icns`。
 - 配置：`Resources/Info.plist` 的 `CFBundleIconFile` 指向 `AppIcon`。
@@ -12,11 +12,9 @@
 ## 最终生成提示词
 
 ```text
-Use case: logo-brand.
-Asset type: final production macOS application icon for 读解 / Yomitoki, a Japanese deep-reading application.
-Primary request: one elegant, exceptionally simple and recognizable app icon combining a book and a reading focus. A single warm ivory open-book glyph, built from just two solid clean facing page shapes and a slim center gutter, on a muted deep ink-indigo rounded-square tile. On the right-hand page, one short muted vermilion horizontal highlight, conveying close reading and insight. Quiet Japanese editorial sensibility, generous negative space, balanced proportions, crisp optical alignment.
-Style: refined flat vector-like shapes, restrained gentle depth only on the tile edge, no illustration, no paper texture.
-Composition: one centered icon only on a square 1024 by 1024 canvas. Tile occupies about 82 percent of canvas width, with macOS-style continuous rounded corners and even transparent padding on all sides; book occupies about 55 percent of tile width. Thick simple shapes that read clearly at 16, 32, 64 pixels. Actual transparent alpha outside the rounded tile, no opaque outer square or checkerboard.
-Text: none. No letters, kanji, hiragana or app name.
-Avoid: magnifying glasses, sparkles, robots, chat bubbles, flags, circles representing a sun, multiple competing symbols, long shadows, busy decorative details, mockups, grids, multiple variants, labels, watermarks. Deliver the icon itself as a single finished transparent PNG.
+Use case: precise-object-edit. Asset: Yomitoki macOS and Windows app icon. Edit target: provided icon. Change only the palette and surface finish. Use exactly two flat colors: very pale lavender-gray (#E9EAF5) for the rounded square tile and muted slate-indigo (#41466C) for the two open-book pages. Keep the existing short pill-shaped reading highlight in the same place on the right page, as a cutout in the tile color. Preserve the silhouette, centered composition, shape proportions and even transparent padding. Clean antialiasing, actual alpha outside the tile, no gradients, textures, shadows, rims, text or added motifs. One square production PNG.
+```
+
+```text
+Edit the supplied two-color Yomitoki app icon. Enlarge the central open-book symbol and its small pill-shaped highlight together by 25% about its center, increasing its width from roughly 60% to 75% of the rounded tile. Preserve the exact tile size, continuous rounded corner silhouette, transparent outer padding, centered book, book shape and negative-space highlight on its right page. Keep the very pale lavender-gray tile and dark gray-indigo glyph, with clean flat fills. Crisp clean antialiasing, real transparent alpha outside tile, no white fringe or stray pixels, no new elements or text. Square PNG.
 ```

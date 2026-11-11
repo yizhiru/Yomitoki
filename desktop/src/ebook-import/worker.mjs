@@ -4,10 +4,33 @@ import { unzipSync, unzlibSync } from '../vendor/fflate/fflate.mjs';
 import { LIMITS, inspectZip, inspectMobi } from './zip.mjs';
 import { decodeText, plainText } from './text.mjs';
 let book;
-try {
+async function run() {
   const { bytes: input, kind, name } = await window.ebookImport.input();
   const bytes = new Uint8Array(input);
   if (bytes.length > LIMITS.file) throw new Error('文件超过 300 MB，请先拆分。');
+  if (kind === 'MDX' || kind === 'ZIP') {
+    const sections = [];
+    let entries;
+    if (kind === 'ZIP') {
+      const { importYomitan } = await import('./yomitan.mjs');
+      const dictionary = importYomitan(bytes);
+      sections.push(dictionary.title);
+      entries = dictionary.entries;
+    } else {
+      const { importMdx } = await import('./mdx.mjs');
+      entries = importMdx(bytes);
+    }
+    let chunk = Object.create(null), count = 0;
+    for (const [key, text] of entries) {
+      chunk[key] = text;
+      if (++count % 1000 === 0) {
+        sections.push(JSON.stringify(chunk));
+        chunk = Object.create(null);
+      }
+    }
+    if (count % 1000) sections.push(JSON.stringify(chunk));
+    return sections;
+  }
   let loadText;
   if (kind === 'EPUB') {
     inspectZip(bytes);
@@ -46,9 +69,12 @@ try {
     if (text) sections.push(text);
   }
   if (!sections.length) throw new Error('电子书没有可读取的正文。');
-  window.ebookImport.result({ ok: true, sections });
+  return sections;
+}
+try {
+  window.ebookImport.result({ ok: true, sections: await run() });
 } catch (error) {
   const message = error.message || '电子书解析失败。';
-  const friendly = /[\u4e00-\u9fff]/u.test(message) ? message : '电子书格式无效或文件损坏，无法导入。';
+  const friendly = /[\u4e00-\u9fff]/u.test(message) ? message : '文件格式无效或文件损坏，无法导入。';
   window.ebookImport.result({ ok: false, error: friendly });
 } finally { try { book?.destroy(); } catch {} }

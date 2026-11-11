@@ -144,6 +144,16 @@ struct SentenceAnalysisAPI {
     }
 }
 
+struct SavedSentenceAnalysis: Codable, Identifiable {
+    var id = UUID()
+    let bookID: UUID
+    let page: Int
+    let offset: Int
+    let text: String
+    let serviceName: String
+    let result: SentenceAnalysis
+}
+
 @MainActor final class SentenceAnalysisState: ObservableObject {
     @Published private(set) var source: String?
     @Published private(set) var result: SentenceAnalysis?
@@ -152,13 +162,19 @@ struct SentenceAnalysisAPI {
     @Published private(set) var reused = false
     @Published private(set) var cacheWarning: String?
     @Published private(set) var serviceName = ""
+    @Published private(set) var history: [SavedSentenceAnalysis] = []
+    @Published private(set) var historyWarning: String?
     private var lastSettings: DefinitionSettings?
+    private var location: (bookID: UUID, page: Int, offset: Int)?
     private let path: URL
+    private let historyPath: URL
+    private var canSaveHistory = true
     private let fetch: (String, DefinitionSettings) async throws -> SentenceAnalysis
     private var cache: [String: SentenceAnalysis] = [:]
     private var canSaveCache = true
     private var task: Task<Void, Never>?
     private var requestID = UUID()
+    var canRetry: Bool { lastSettings != nil }
 
     init(directory: URL, fetch: @escaping (String, DefinitionSettings) async throws -> SentenceAnalysis = { text, settings in
         let key = try await Task.detached { try APIKeyStore.read(settings.provider) }.value
@@ -166,7 +182,16 @@ struct SentenceAnalysisAPI {
         return try await SentenceAnalysisAPI().analyze(text, settings: settings, apiKey: key)
     }) {
         path = directory.appendingPathComponent("sentence-analyses.json")
+        historyPath = directory.appendingPathComponent("sentence-analysis-history.json")
         self.fetch = fetch
+        if FileManager.default.fileExists(atPath: historyPath.path) {
+            do {
+                history = try JSONDecoder().decode([SavedSentenceAnalysis].self, from: Data(contentsOf: historyPath))
+            } catch {
+                canSaveHistory = false
+                historyWarning = "长句分析记录无法读取，原文件已保留。"
+            }
+        }
         if FileManager.default.fileExists(atPath: path.path) {
             do {
                 let decoded = try JSONDecoder().decode([String: SentenceAnalysis].self, from: Data(contentsOf: path))
@@ -179,8 +204,10 @@ struct SentenceAnalysisAPI {
         }
     }
 
-    func analyze(_ text: String, settings: DefinitionSettings, refresh: Bool = false) {
+    func analyze(_ text: String, settings: DefinitionSettings, refresh: Bool = false,
+                 location: (bookID: UUID, page: Int, offset: Int)? = nil) {
         clear()
+        self.location = location
         source = text
         lastSettings = settings
         serviceName = "\(settings.serviceName) · \(settings.model)"
@@ -191,7 +218,12 @@ struct SentenceAnalysisAPI {
         let key: String
         do { key = try SentenceAnalysisAPI.cacheKey(text, settings: settings) }
         catch { failure = error.localizedDescription; return }
-        if !refresh, let value = cache[key] { result = value; reused = true; return }
+        if !refresh, let value = cache[key] {
+            result = value
+            reused = true
+            record(value)
+            return
+        }
         analyzing = true
         let id = requestID
         task = Task { [weak self] in
@@ -201,6 +233,7 @@ struct SentenceAnalysisAPI {
                 guard !Task.isCancelled, id == requestID else { return }
                 guard value.isComplete else { throw ModelFailure("分析结果不完整，请重试。") }
                 result = value
+                record(value)
                 cache[key] = value
                 if canSaveCache {
                     do {
@@ -220,7 +253,39 @@ struct SentenceAnalysisAPI {
 
     func retry() {
         guard let source, let settings = lastSettings else { return }
-        analyze(source, settings: settings, refresh: true)
+        analyze(source, settings: settings, refresh: true, location: location)
+    }
+
+    func show(_ entry: SavedSentenceAnalysis) {
+        clear()
+        source = entry.text
+        result = entry.result
+        serviceName = entry.serviceName
+    }
+
+    func delete(_ id: UUID) {
+        saveHistory(history.filter { $0.id != id })
+    }
+
+    private func record(_ value: SentenceAnalysis) {
+        guard let source, let location else { return }
+        var updated = history.filter {
+            !($0.bookID == location.bookID && $0.page == location.page && $0.offset == location.offset
+              && $0.text == source && $0.serviceName == serviceName)
+        }
+        updated.insert(SavedSentenceAnalysis(bookID: location.bookID, page: location.page, offset: location.offset,
+                                            text: source, serviceName: serviceName, result: value), at: 0)
+        saveHistory(updated)
+    }
+
+    private func saveHistory(_ updated: [SavedSentenceAnalysis]) {
+        guard canSaveHistory else { return }
+        do {
+            try FileManager.default.createDirectory(at: historyPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONEncoder().encode(updated).write(to: historyPath, options: .atomic)
+            history = updated
+            historyWarning = nil
+        } catch { historyWarning = "长句分析记录保存失败。\(error.localizedDescription)" }
     }
 
     func clear() {
@@ -228,6 +293,8 @@ struct SentenceAnalysisAPI {
         task = nil
         requestID = UUID()
         source = nil
+        location = nil
+        lastSettings = nil
         result = nil
         analyzing = false
         failure = nil

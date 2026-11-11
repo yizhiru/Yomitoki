@@ -255,6 +255,20 @@ struct ModelChatAPI {
         persist()
     }
 
+    func delete(_ id: UUID) {
+        let remaining = conversations.filter { $0.id != id }
+        let nextID = activeID == id ? remaining.last?.id : activeID
+        guard write(Store(conversations: remaining, activeID: nextID)) else { return }
+        if activeID == id {
+            dismiss()
+            activeID = nextID
+            draft = nextID.flatMap { drafts[$0] } ?? ""
+            failure = nil
+        }
+        drafts[id] = nil
+        conversations = remaining
+    }
+
     func stop() {
         requestID = UUID()
         task?.cancel()
@@ -294,11 +308,17 @@ struct ModelChatAPI {
     }
 
     private func persist() {
-        guard writable else { return }
+        _ = write(Store(conversations: conversations, activeID: activeID))
+    }
+
+    private func write(_ store: Store) -> Bool {
+        guard writable else { return false }
         do {
             try FileManager.default.createDirectory(at: path.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(Store(conversations: conversations, activeID: activeID)).write(to: path, options: .atomic)
+            try JSONEncoder().encode(store).write(to: path, options: .atomic)
             storageWarning = nil
+            return true
         } catch { storageWarning = "本次对话仍可继续，但记录保存失败。\(error.localizedDescription)" }
+        return false
     }
 }

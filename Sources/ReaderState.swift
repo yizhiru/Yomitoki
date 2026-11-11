@@ -6,19 +6,31 @@ import UniformTypeIdentifiers
     @Published private(set) var library: LibraryData
     @Published var lookup: Lookup?
     @Published var textSelection: NSRange?
+    var noteSelection: NSRange?
     @Published private(set) var querying = false
     @Published private(set) var lookupFailure: String?
     @Published private(set) var reusedDefinition = false
     @Published private(set) var cacheWarning: String?
-    @Published var inNotebook = false {
+    enum Destination { case reading, vocabulary, notes }
+    @Published var destination = Destination.reading {
         didSet {
-            if inNotebook { cancelImport(); translation.clear(); sentenceAnalysis.clear(); modelChat.dismiss() }
-            if inNotebook { textSelection = nil }
-            if inNotebook && querying {
+            guard destination != .reading else { return }
+            flushReadingProgress()
+            cancelImport()
+            translation.clear()
+            sentenceAnalysis.clear()
+            modelChat.dismiss()
+            textSelection = nil
+            noteSelection = nil
+            if querying {
                 cancelLookup()
                 lookup = nil
             }
         }
+    }
+    var inNotebook: Bool {
+        get { destination == .vocabulary }
+        set { destination = newValue ? .vocabulary : .reading }
     }
     @Published var selectedWord: String?
     @Published private(set) var importing = false
@@ -27,6 +39,15 @@ import UniformTypeIdentifiers
     @Published var fontSize: CGFloat = 26
     @Published var failure: String?
     @Published private(set) var revision = UUID()
+    @Published private(set) var readingOffset = 0
+    private var pendingReadingOffset: Int?
+    private var readingProgressTask: Task<Void, Never>?
+    @Published private(set) var dictionaryCatalog = DictionaryCatalog()
+    @Published private(set) var selectedDictionary: UUID?
+    @Published private(set) var updatingDictionaries = false
+    @Published private(set) var dictionaryMessage: String?
+    private let dictionaryFiles: ImportedDictionaryFiles
+    private var importedDictionary: ImportedDictionaryIndex?
     let dictionary: Lexicon
     let preferences: DefinitionPreferences
     let translation: LocalTranslation
@@ -54,6 +75,7 @@ import UniformTypeIdentifiers
             ?? environment["KOTOBAHIROI_DATA_DIRECTORY"] ?? environment["BUNMYAKU_DATA_DIRECTORY"])
             .map { URL(fileURLWithPath: $0, isDirectory: true) } ?? appSupport.appendingPathComponent("Bunmyaku")
         path = directory.appendingPathComponent("library.json")
+        dictionaryFiles = ImportedDictionaryFiles(directory: directory.appendingPathComponent("dictionaries", isDirectory: true))
         translation = LocalTranslation(directory: directory)
         modelChat = ModelChatState(directory: directory)
         sentenceAnalysis = fetchAnalysis.map { SentenceAnalysisState(directory: directory, fetch: $0) }
@@ -90,6 +112,18 @@ import UniformTypeIdentifiers
                 failure = "旧生词本备份失败，暂未合并词形。\(error.localizedDescription)"
             }
         }
+        do {
+            dictionaryCatalog = try dictionaryFiles.catalog()
+            if let id = dictionaryCatalog.selected {
+                guard let info = dictionaryCatalog.dictionaries.first(where: { $0.id == id }) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+                importedDictionary = try dictionaryFiles.load(info)
+                selectedDictionary = id
+            }
+        } catch {
+            dictionaryMessage = "无法载入上次使用的词典，已启用内置词典。"
+        }
         refreshTokens()
     }
 
@@ -97,6 +131,8 @@ import UniformTypeIdentifiers
     var selectedSavedWord: SavedWord? { library.words.first { $0.id == selectedWord } }
     func refreshTokens() {
         textSelection = nil
+        noteSelection = nil
+        readingOffset = book.clampedReadingOffset(book.readingOffset ?? 0)
         tokens = Lexicon.tokens(book.pages[book.page])
         revision = UUID()
     }
@@ -115,27 +151,84 @@ import UniformTypeIdentifiers
             return false
         }
     }
-    func openBook(_ id: UUID, page: Int? = nil) {
+    func recordReadingProgress(_ offset: Int, revision: UUID) {
+        guard revision == self.revision, destination == .reading else { return }
+        pendingReadingOffset = book.clampedReadingOffset(offset)
+        guard readingProgressTask == nil else { return }
+        readingProgressTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(350)) }
+            catch { return }
+            self?.flushReadingProgress()
+        }
+    }
+
+    func flushReadingProgress() {
+        readingProgressTask?.cancel()
+        readingProgressTask = nil
+        guard let offset = pendingReadingOffset else { return }
+        pendingReadingOffset = nil
+        guard let index = library.books.firstIndex(where: { $0.id == book.id }),
+              offset != (book.readingOffset ?? 0) else { return }
+        var candidate = library
+        candidate.books[index].readingOffset = offset
+        if persist(candidate) { readingOffset = offset }
+    }
+
+    func openBook(_ id: UUID, page: Int? = nil, offset: Int = 0) {
         cancelImport()
+        flushReadingProgress()
         guard let index = library.books.firstIndex(where: { $0.id == id }) else { return }
+        if let page, !library.books[index].pages.indices.contains(page) { return }
         var candidate = library
         candidate.current = id
-        if let page { candidate.books[index].page = page }
-        if candidate.current != library.current || candidate.books[index].page != library.books[index].page {
+        if let page {
+            candidate.books[index].page = page
+            candidate.books[index].readingOffset = candidate.books[index].clampedReadingOffset(offset)
+        }
+        let sectionChanged = candidate.current != library.current || candidate.books[index].page != library.books[index].page
+        if sectionChanged || (candidate.books[index].readingOffset ?? 0) != (library.books[index].readingOffset ?? 0) {
             guard persist(candidate) else { return }
+        }
+        if sectionChanged {
             refreshTokens()
+        } else {
+            readingOffset = book.clampedReadingOffset(book.readingOffset ?? 0)
+            if page != nil { revision = UUID() }
         }
         cancelLookup()
         modelChat.dismiss()
         translation.clear()
         sentenceAnalysis.clear()
         textSelection = nil
+        noteSelection = nil
         lookup = nil
         inNotebook = false
+    }
+    func saveNote(_ note: ReadingNote) -> Bool {
+        guard note.hasBody || note.hasExcerpt,
+              let book = library.books.first(where: { $0.id == note.bookID }),
+              book.pages.indices.contains(note.page) else { return false }
+        var candidate = library
+        if let index = candidate.notes.firstIndex(where: { $0.id == note.id }) {
+            candidate.notes[index].body = note.body
+        } else {
+            candidate.notes.insert(note, at: 0)
+        }
+        return persist(candidate)
+    }
+
+    func deleteNote(_ id: UUID) {
+        var candidate = library
+        candidate.notes.removeAll { $0.id == id }
+        _ = persist(candidate)
     }
     func showPage(_ page: Int) {
         guard book.pages.indices.contains(page) else { return }
         openBook(book.id, page: page)
+    }
+    func turnReadingPage(section: Int, offset: Int) {
+        guard book.pages.indices.contains(section) else { return }
+        openBook(book.id, page: section, offset: offset)
     }
     @discardableResult func choose(_ offset: Int) -> NSRange? {
         let selected = dictionary.lookup(book: book, page: book.page, at: offset, tokens: tokens)
@@ -166,7 +259,16 @@ import UniformTypeIdentifiers
         cancelLookup()
         modelChat.dismiss()
         translation.clear()
-        sentenceAnalysis.analyze(text, settings: preferences.settings)
+        sentenceAnalysis.analyze(text, settings: preferences.settings, location: (book.id, book.page, range.location))
+    }
+    func openHistorySource(bookID: UUID, page: Int, offset: Int) -> Bool {
+        guard let source = library.books.first(where: { $0.id == bookID }), source.pages.indices.contains(page) else {
+            failure = "找不到这条记录的原文位置。"
+            return false
+        }
+        openBook(bookID, page: page, offset: offset)
+        guard book.id == bookID, book.page == page, destination == .reading else { return false }
+        return true
     }
     func chatSelection(_ range: NSRange) {
         guard selectionLevel(range) != nil, let selected = Range(range, in: book.pages[book.page]) else { return }
@@ -212,7 +314,18 @@ import UniformTypeIdentifiers
         sentenceAnalysis.clear()
         translation.clear()
         cancelLookup()
-        lookup = selected
+        guard let selected, let importedDictionary else {
+            lookup = selected
+            return
+        }
+        let original = selected.definition
+        let surface = selected.occurrence.context.word
+        let text = importedDictionary.meaning(for: [surface, original.head, original.reading], reading: original.reading)
+        let definition = Definition(head: original.head, reading: original.reading, chinese: nil, english: nil,
+                                    dictionaryName: importedDictionary.info.name, dictionaryText: text)
+        var occurrence = selected.occurrence
+        occurrence.definition = definition
+        lookup = Lookup(definition: definition, occurrence: occurrence)
     }
     func retryLookup() {
         requestModelLookup(lookup)
@@ -270,12 +383,12 @@ import UniformTypeIdentifiers
         sentenceAnalysis.clear()
         let selection = lookup?.range
         cancelLookup()
-        if !inNotebook, let selection {
+        if destination == .reading, let selection {
             showDictionary(dictionary.lookup(book: book, page: book.page, selection: selection))
         }
     }
     func show(_ word: SavedWord, at example: Occurrence) {
-        openBook(example.bookID, page: example.page)
+        openBook(example.bookID, page: example.page, offset: example.offset)
         guard book.id == example.bookID, book.page == example.page else { return }
         lookup = Lookup(definition: example.definition ?? word.definition, occurrence: example)
     }
@@ -316,6 +429,87 @@ import UniformTypeIdentifiers
         if candidate.words[index].examples.isEmpty { candidate.words.remove(at: index) }
         if persist(candidate), selectedSavedWord == nil { selectedWord = library.words.first?.id }
     }
+    func importDictionary() {
+        guard !updatingDictionaries else { return }
+        let panel = NSOpenPanel()
+        panel.title = "导入本地词典"
+        panel.prompt = "导入"
+        panel.allowedContentTypes = [UTType(filenameExtension: "mdx", conformingTo: .data) ?? .data, .zip]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        importDictionary(url)
+    }
+
+    func importDictionary(_ url: URL, resources: URL? = nil) {
+        guard !updatingDictionaries else { return }
+        let format = url.pathExtension.lowercased()
+        guard ["mdx", "zip"].contains(format) else {
+            dictionaryMessage = "请选择 MDX 或 Yomitan ZIP 词典。"
+            return
+        }
+        updatingDictionaries = true
+        dictionaryMessage = nil
+        let files = dictionaryFiles
+        Task {
+            defer { updatingDictionaries = false }
+            do {
+                let parsed = try await EbookImport.read(url, resources: resources, timeout: 120)
+                let name = format == "zip" ? parsed[0] : url.deletingPathExtension().lastPathComponent
+                let chunks = format == "zip" ? Array(parsed.dropFirst()) : parsed
+                let info = ImportedDictionaryInfo(id: UUID(), name: name)
+                let (catalog, index) = try await Task.detached(priority: .userInitiated) {
+                    var catalog = try files.catalog()
+                    let index = try ImportedDictionaryIndex(info: info, chunks: chunks)
+                    try FileManager.default.createDirectory(at: files.directory, withIntermediateDirectories: true)
+                    try JSONEncoder().encode(chunks).write(to: files.file(for: info), options: .atomic)
+                    catalog.dictionaries.append(info)
+                    catalog.selected = info.id
+                    do { try files.save(catalog) }
+                    catch {
+                        try? FileManager.default.removeItem(at: files.file(for: info))
+                        throw error
+                    }
+                    return (catalog, index)
+                }.value
+                applyDictionary(catalog, index: index)
+            } catch { dictionaryMessage = "词典导入失败。\(error.localizedDescription)" }
+        }
+    }
+
+    func selectDictionary(_ id: UUID?) {
+        guard !updatingDictionaries, id != selectedDictionary else { return }
+        updatingDictionaries = true
+        dictionaryMessage = nil
+        let files = dictionaryFiles
+        Task {
+            defer { updatingDictionaries = false }
+            do {
+                let (catalog, index) = try await Task.detached(priority: .userInitiated) {
+                    var catalog = try files.catalog()
+                    var index: ImportedDictionaryIndex?
+                    if let id {
+                        guard let info = catalog.dictionaries.first(where: { $0.id == id }) else {
+                            throw CocoaError(.fileNoSuchFile)
+                        }
+                        index = try files.load(info)
+                    }
+                    catalog.selected = id
+                    try files.save(catalog)
+                    return (catalog, index)
+                }.value
+                applyDictionary(catalog, index: index)
+            } catch { dictionaryMessage = "无法切换词典。\(error.localizedDescription)" }
+        }
+    }
+
+    private func applyDictionary(_ catalog: DictionaryCatalog, index: ImportedDictionaryIndex?) {
+        importedDictionary = index
+        dictionaryCatalog = catalog
+        selectedDictionary = index?.info.id
+        if destination == .reading, let lookup, lookup.definition.source == nil, !querying {
+            showDictionary(dictionary.lookup(book: book, page: book.page, selection: lookup.range))
+        }
+    }
+
     func importBook() {
         guard !importing else { return }
         let panel = NSOpenPanel()
@@ -335,6 +529,7 @@ import UniformTypeIdentifiers
             do {
                 let new = try await BookImport.read(url, ebookResources: ebookResources)
                 try Task.checkCancellation()
+                flushReadingProgress()
                 var candidate = library
                 let existing = candidate.books.first { $0.name == new.name && $0.pages == new.pages }
                 if existing == nil { candidate.books.append(new) }
