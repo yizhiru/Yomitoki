@@ -11,9 +11,9 @@
   <div id="workspace">
     <aside id="sidebar">
       <div class="brand"><span class="brand-mark" aria-hidden="true">▤</span><strong>读解</strong></div>
-      <nav><button id="reading-tab" class="active">阅读</button><button id="notebook-tab">生词本</button><button id="notes-tab">笔记本</button></nav>
+      <nav aria-label="主导航"><button id="reading-tab" class="active" aria-current="page">阅读</button><button id="notebook-tab">生词本</button><button id="notes-tab">笔记本</button><button id="history-tab">历史记录</button></nav>
       <div class="section-title">书架</div>
-      <button id="import">导入</button>
+      <button id="import">导入书籍</button>
       <button id="cancel-import" hidden>取消导入</button>
       <div id="books"></div>
       <button id="settings-button" class="settings-entry">设置</button>
@@ -21,26 +21,44 @@
     </aside>
     <div class="splitter" id="sidebar-split" role="separator" aria-label="调整书架宽度" aria-orientation="vertical" tabindex="0"></div>
     <main>
-      <header><div><h1 id="book-title">正在准备词典…</h1><span id="book-location" class="muted"></span></div>
-        <div class="header-actions"><button id="open-reading-search" title="搜索书籍" aria-expanded="false" aria-controls="reading-search">搜索</button><button id="write-note" title="写笔记，可附上所选原文" aria-label="写笔记">✎</button><button id="previous" title="上一页或节">←</button><input id="page-number" type="number" min="1" aria-label="跳转到页或节"><button id="next" title="下一页或节">→</button></div>
+      <header>
+        <div class="book-heading"><h1 id="book-title">正在准备词典…</h1><span id="book-location" class="muted"></span></div>
+        <div class="header-actions" role="group" aria-label="阅读操作">
+          <div class="page-controls" role="group" aria-label="翻页">
+            <button id="previous" aria-label="上一页或节" title="上一页或节">←</button>
+            <input id="page-number" type="number" min="1" aria-label="跳转到页或节">
+            <button id="next" aria-label="下一页或节" title="下一页或节">→</button>
+          </div>
+          <button id="toggle-detail" type="button" aria-controls="detail" aria-label="展开右栏" hidden>右栏</button>
+          <div class="reading-tools">
+            <button id="open-reading-search" title="搜索书籍" aria-expanded="false" aria-controls="reading-search">搜索</button>
+            <button id="reading-more" type="button" popovertarget="reading-more-actions">更多</button>
+          </div>
+          <div id="reading-more-actions" popover aria-label="更多阅读操作">
+            <button id="book-info">文档信息</button>
+            <button id="write-note" title="写笔记，可附上所选原文">写笔记</button>
+          </div>
+        </div>
       </header>
       <form id="reading-search" role="search" aria-label="书内搜索" hidden>
         <input id="reading-query" type="search" placeholder="搜索当前书籍" aria-label="搜索当前书籍">
-        <button type="submit">搜索</button>
+        <button type="submit" class="primary">搜索</button>
         <span id="reading-search-status" role="status"></span>
         <button type="button" id="previous-match" aria-label="上一处" disabled>↑</button>
         <button type="button" id="next-match" aria-label="下一处" disabled>↓</button>
         <button type="button" id="close-reading-search" aria-label="关闭搜索">×</button>
       </form>
       <div id="reading-scroll"><article id="reader" lang="ja" tabindex="0"></article></div>
-      <section id="notebook" hidden><div class="notebook-tools"><input id="word-search" type="search" placeholder="搜索单词、读音或释义"><button id="export-button">导出…</button></div><div id="words"></div></section>
+      <p id="reading-empty" class="muted" hidden>书架为空。可以从左侧导入书籍。</p>
+      <section id="notebook" hidden><div class="notebook-tools"><input id="word-search" type="search" placeholder="搜索单词、释义或原句" aria-label="搜索生词"><button id="export-button" class="primary">导出…</button></div><div id="words"></div></section>
       <section id="notes" hidden>
-        <aside id="notes-books" aria-label="按书浏览笔记"></aside>
+        <aside id="notes-books" aria-label="按书浏览记录"></aside>
         <div id="notes-content">
-          <div class="notes-heading"><h2 id="notes-book-title"></h2><button id="new-note">新建笔记</button></div>
-          <label>记录类型
-            <select id="notes-kind"><option value="notes">笔记</option><option value="analyses">长句分析</option><option value="chats">大模型对话</option></select>
-          </label>
+          <div class="notes-heading"><h2 id="notes-book-title"></h2><button id="new-note" class="primary">新建笔记</button></div>
+          <div id="history-kind" class="option-group" role="radiogroup" aria-label="记录类型" hidden>
+            <label><input type="radio" name="history-kind" value="analyses" checked><span>长句分析</span></label>
+            <label><input type="radio" name="history-kind" value="chats"><span>大模型对话</span></label>
+          </div>
           <input id="notes-search" type="search" placeholder="搜索全部笔记" aria-label="搜索全部笔记">
           <div id="note-list"></div>
         </div>
@@ -50,6 +68,10 @@
     <aside id="detail"><div id="detail-body"><p class="empty">选中文字，开始读解。<br><small>单词查释义，句子做分析，段落可翻译。</small></p></div></aside>
   </div>
   <div id="selection-toolbar" role="toolbar" aria-label="选文操作" hidden></div>
+  <div id="book-context-menu" popover>
+    <button id="book-context-info" type="button">文档信息</button>
+    <button id="book-context-remove" type="button">移出书架</button>
+  </div>
   <div id="status" role="status" aria-live="polite"></div>
   <dialog id="settings-dialog">
     <form method="dialog"><div class="dialog-heading"><h2>设置</h2><button aria-label="关闭设置">✕</button></div></form>
@@ -89,6 +111,18 @@
     <label>格式<select id="export-format"><option value="csv">CSV 表格</option><option value="txt">纯文本 TXT</option></select></label>
     <label>范围<select id="export-scope"><option value="all">全部生词</option><option value="filtered">当前搜索结果</option></select></label>
     <fieldset id="export-fields"><legend>单词始终导出，其他字段按需选择</legend></fieldset><button id="export-confirm" class="primary">导出…</button>
+  </dialog>
+  <dialog id="book-info-dialog" aria-labelledby="book-info-title">
+    <form id="book-info-form">
+      <div class="dialog-heading"><h2 id="book-info-title">文档信息</h2></div>
+      <label>书名<input name="title" maxlength="500"></label>
+      <label>作者<input name="author" maxlength="500" placeholder="未提供"></label>
+      <label>出版社<input name="publisher" maxlength="500" placeholder="未提供"></label>
+      <label>出版日期<input name="published" maxlength="500" placeholder="例如 2024-05"></label>
+      <dl id="book-statistics"></dl>
+      <small>字数包含文字、字母和数字。</small>
+      <div class="button-row"><button type="button" id="cancel-book-info">取消</button><button class="primary" id="save-book-info">保存</button></div>
+    </form>
   </dialog>
   <dialog id="note-dialog" aria-labelledby="note-dialog-title">
     <form id="note-form">

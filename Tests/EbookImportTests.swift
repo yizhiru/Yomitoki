@@ -154,7 +154,8 @@ private func compact(_ text: String) -> String { String(text.filter { !$0.isWhit
         let pdf = directory.appendingPathComponent("日本語 PDF.pdf")
         let output = NSMutableData()
         var box = CGRect(x: 0, y: 0, width: 600, height: 800)
-        let context = CGContext(consumer: CGDataConsumer(data: output)!, mediaBox: &box, nil)!
+        let attributes = [kCGPDFContextTitle as String: "示例书名", kCGPDFContextAuthor as String: "示例作者"]
+        let context = CGContext(consumer: CGDataConsumer(data: output)!, mediaBox: &box, attributes as CFDictionary)!
         context.beginPDFPage(nil)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
@@ -164,6 +165,8 @@ private func compact(_ text: String) -> String { String(text.filter { !$0.isWhit
         try (output as Data).write(to: pdf)
         let importedPDF = try await BookImport.read(pdf)
         try require(importedPDF.kind == "PDF" && importedPDF.pages.joined().contains("喫茶店"), "PDF regression")
+        try require(importedPDF.title == "示例书名" && importedPDF.metadata?.author == "示例作者"
+                    && importedPDF.characterCount == 16, "PDF metadata and character count")
         let payload: [String: Any] = [
             "platform": "macOS", "osVersion": ProcessInfo.processInfo.operatingSystemVersionString,
             "resourcePath": resources.path, "bundledResourceLookup": bundled, "results": results,

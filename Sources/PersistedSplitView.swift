@@ -54,6 +54,7 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
     let idealWidth: CGFloat
     let maximumWidth: CGFloat
     let otherMinimumWidth: CGFloat
+    var trailingCollapsed = false
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -65,6 +66,7 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
         let otherMinimum: CGFloat
         let leading: NSHostingView<AnyView>
         let trailing: NSHostingView<AnyView>
+        var trailingCollapsed: Bool
         private var applying = false
 
         init(_ owner: PersistedHSplitView) {
@@ -73,6 +75,7 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
             minimum = owner.minimumWidth
             maximum = owner.maximumWidth
             otherMinimum = owner.otherMinimumWidth
+            trailingCollapsed = owner.trailingCollapsed
             leading = NSHostingView(rootView: Self.content(owner.leading()))
             trailing = NSHostingView(rootView: Self.content(owner.trailing()))
             super.init()
@@ -92,6 +95,10 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
             guard !applying, split.subviews.count == 2, split.bounds.width > 0 else { return }
             applying = true
             defer { applying = false }
+            if trailingCollapsed {
+                leading.frame = split.bounds
+                return
+            }
             let available = max(0, split.bounds.width - split.dividerThickness)
             let fixed: CGFloat
             if split.draggingDivider {
@@ -109,6 +116,7 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
         }
 
         func rememberWidth() {
+            guard !trailingCollapsed else { return }
             width.remember(edge == .leading ? leading.frame.width : trailing.frame.width)
         }
 
@@ -131,6 +139,10 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
         }
 
         func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool { false }
+
+        func splitView(_ splitView: NSSplitView, shouldHideDividerAt dividerIndex: Int) -> Bool {
+            trailingCollapsed
+        }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -142,6 +154,7 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
         split.delegate = context.coordinator
         split.addArrangedSubview(context.coordinator.leading)
         split.addArrangedSubview(context.coordinator.trailing)
+        context.coordinator.trailing.isHidden = trailingCollapsed
         split.onLayout = { [weak split, weak coordinator = context.coordinator] in
             if let split { coordinator?.layout(split) }
         }
@@ -151,6 +164,12 @@ struct PersistedHSplitView<Leading: View, Trailing: View>: NSViewRepresentable {
     }
 
     func updateNSView(_ split: RememberingSplitView, context: Context) {
+        let coordinator = context.coordinator
+        if coordinator.trailingCollapsed != trailingCollapsed {
+            coordinator.trailingCollapsed = trailingCollapsed
+            coordinator.trailing.isHidden = trailingCollapsed
+            split.needsDisplay = true
+        }
         context.coordinator.leading.rootView = Coordinator.content(leading())
         context.coordinator.trailing.rootView = Coordinator.content(trailing())
         context.coordinator.layout(split)

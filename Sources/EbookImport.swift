@@ -1,11 +1,20 @@
 import AppKit
 import WebKit
 
+struct EbookDocument {
+    let sections: [String]
+    var metadata: BookMetadata?
+}
+
 /// Runs only our bundled parser in a disposable WebKit process; book markup is never displayed.
 @MainActor enum EbookImport {
     nonisolated static let maximumFileSize = 300_000_000
 
     static func read(_ url: URL, resources: URL? = nil, timeout: TimeInterval = 30) async throws -> [String] {
+        try await readDocument(url, resources: resources, timeout: timeout).sections
+    }
+
+    static func readDocument(_ url: URL, resources: URL? = nil, timeout: TimeInterval = 30) async throws -> EbookDocument {
         try Task.checkCancellation()
         let data = try await Task.detached(priority: .userInitiated) {
             let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
@@ -41,7 +50,7 @@ import WebKit
     private let kind: String
     private let host = UUID().uuidString.lowercased()
     private var webView: WKWebView?
-    private var continuation: CheckedContinuation<[String], Error>?
+    private var continuation: CheckedContinuation<EbookDocument, Error>?
     private var watchdog: Task<Void, Never>?
     private var finished = false
     private var inputDelivered = false
@@ -55,7 +64,7 @@ import WebKit
         self.root = root; self.data = data; self.name = name; self.kind = kind
     }
 
-    func start(timeout: TimeInterval, continuation: CheckedContinuation<[String], Error>) {
+    func start(timeout: TimeInterval, continuation: CheckedContinuation<EbookDocument, Error>) {
         self.continuation = continuation
         guard Self.assets.allSatisfy({ FileManager.default.isReadableFile(atPath: root.appendingPathComponent(String($0.dropFirst())).path) }) else {
             finish(.failure(BookImport.Failure(message: "内置电子书解析器缺失，请重新安装完整应用。")))
@@ -119,7 +128,7 @@ import WebKit
         view.load(URLRequest(url: hostURL))
     }
 
-    func finish(_ result: Result<[String], Error>) {
+    func finish(_ result: Result<EbookDocument, Error>) {
         guard !finished else { return }
         finished = true
         watchdog?.cancel(); watchdog = nil
@@ -174,11 +183,14 @@ import WebKit
         if value["ok"] as? Bool == true, importingDictionary, !dictionaryChunks.isEmpty {
             let sections = dictionaryChunks
             dictionaryChunks.removeAll()
-            finish(.success(sections))
+            finish(.success(EbookDocument(sections: sections)))
         } else if value["ok"] as? Bool == true, !importingDictionary, let sections = value["sections"] as? [String],
                   !sections.isEmpty, sections.count <= 10_000,
                   sections.reduce(0, { $0 + $1.utf16.count }) <= 10_000_000 {
-            finish(.success(sections))
+            let fields = value["metadata"] as? [String: String] ?? [:]
+            let metadata = BookMetadata(title: fields["title"], author: fields["author"],
+                                        publisher: fields["publisher"], published: fields["published"])
+            finish(.success(EbookDocument(sections: sections, metadata: metadata)))
         } else {
             let error = (value["error"] as? String).map { String($0.prefix(500)) } ?? "电子书解析失败，文件格式无效或内容过大。"
             finish(.failure(BookImport.Failure(message: error)))

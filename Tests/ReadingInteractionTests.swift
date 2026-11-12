@@ -107,6 +107,18 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
                     "Selection actions must leave keyboard copy with the reader")
         window.removeChildWindow(panel)
         panel.close()
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+        coordinator.selectionLevel = { _ in .word }
+        view.setSelectedRange(range)
+        coordinator.dismissActions()
+        coordinator.restoreActions(at: point, in: view)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        try require(window.childWindows?.contains(where: { $0 is SelectionActionsPanel }) == true,
+                    "Hovering a retained selection restores its dismissed toolbar")
+        try require(view.selectedRange() == range && window.firstResponder === view,
+                    "Restoring the toolbar preserves the selection and keyboard focus")
+        coordinator.dismissActions()
         print("Passed sentence/paragraph translation eligibility, word/fragment rejection, single-click switch, exact selection, Unicode, and toolbar focus checks.")
     }
 }

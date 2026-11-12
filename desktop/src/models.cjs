@@ -54,6 +54,11 @@ function decodeAnalysis(reply) {
 function decodeDefinition(reply) {
   const result = decodeJSON(reply);
   if (!['head', 'reading', 'meaning'].every(key => typeof result[key] === 'string' && result[key].trim())) throw new Error('模型释义不完整，请重试。');
-  return { head: result.head.trim(), reading: result.reading.trim(), chinese: [result.meaning, result.note].filter(Boolean).join('\n'), etymology: typeof result.etymology === 'string' ? result.etymology : '' };
+  const modelNote = typeof result.note === 'string' ? result.note.trim() : '';
+  return {
+    head: result.head.trim(), reading: result.reading.trim(),
+    chinese: [result.meaning.trim(), modelNote].filter(Boolean).join('\n'), modelNote,
+    etymology: typeof result.etymology === 'string' ? result.etymology.trim() : ''
+  };
 }
 module.exports = { endpoint, completion, decodeJSON, decodeAnalysis, decodeDefinition, prompts };

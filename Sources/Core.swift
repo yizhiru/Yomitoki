@@ -3,6 +3,29 @@ import NaturalLanguage
 import PDFKit
 import SQLite3
 
+struct BookMetadata: Codable, Sendable {
+    var title: String?
+    var author: String?
+    var publisher: String?
+    var published: String?
+
+    init(title: String? = nil, author: String? = nil, publisher: String? = nil, published: String? = nil) {
+        func clean(_ value: String?) -> String? {
+            guard let text = value?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+            return String(text.prefix(500))
+        }
+        self.title = clean(title)
+        self.author = clean(author)
+        self.publisher = clean(publisher)
+        self.published = clean(published)
+    }
+
+    func fillingMissing(from source: Self?) -> Self {
+        Self(title: title ?? source?.title, author: author ?? source?.author,
+             publisher: publisher ?? source?.publisher, published: published ?? source?.published)
+    }
+}
+
 struct Book: Codable, Identifiable {
     var id = UUID()
     let name: String
@@ -10,12 +33,30 @@ struct Book: Codable, Identifiable {
     let pages: [String]
     var page = 0
     var readingOffset: Int? = nil
+    var metadata: BookMetadata? = nil
+    var removedFromShelf: Bool? = nil
 
     func clampedReadingOffset(_ offset: Int) -> Int {
         min(max(0, offset), max(0, pages[page].utf16.count - 1))
     }
-    var title: String { (name as NSString).deletingPathExtension }
+    var filenameTitle: String {
+        let stem = (name as NSString).deletingPathExtension
+        return stem.isEmpty ? name : stem
+    }
+    var title: String { metadata?.title ?? filenameTitle }
     var unit: String { kind == "PDF" ? "页" : "节" }
+    var characterCount: Int {
+        return pages.reduce(0) { count, page in
+            page.unicodeScalars.reduce(count) { subtotal, scalar in
+                switch scalar.properties.generalCategory {
+                case .uppercaseLetter, .lowercaseLetter, .titlecaseLetter, .modifierLetter, .otherLetter, .decimalNumber:
+                    return subtotal + 1
+                default:
+                    return subtotal
+                }
+            }
+        }
+    }
 
     static let sample = Book(name: "雨上がりの喫茶店.txt", kind: "示例", pages: [
         """
@@ -44,6 +85,7 @@ struct Definition: Codable, Equatable {
     var etymology: String? = nil
     var dictionaryName: String? = nil
     var dictionaryText: String? = nil
+    var modelNote: String? = nil
     var hasMeaning: Bool { chinese != nil || english != nil || dictionaryText != nil }
     var chineseMeaning: String? {
         guard let text = chinese?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
@@ -124,7 +166,7 @@ struct ReadingNote: Codable, Identifiable {
 struct LibraryData: Codable {
     var books: [Book]
     var words: [SavedWord]
-    var current: UUID
+    var current: UUID?
     var notes: [ReadingNote] = []
     static var initial: Self { .init(books: [.sample], words: [], current: Book.sample.id) }
 
@@ -140,7 +182,7 @@ struct LibraryData: Codable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         books = try values.decode([Book].self, forKey: .books)
         words = try values.decode([SavedWord].self, forKey: .words)
-        current = try values.decode(UUID.self, forKey: .current)
+        current = try values.decodeIfPresent(UUID.self, forKey: .current)
         notes = try values.decodeIfPresent([ReadingNote].self, forKey: .notes) ?? []
     }
 }
@@ -154,11 +196,14 @@ enum BookImport {
         try Task.checkCancellation()
         let kind = url.pathExtension.uppercased()
         let pages: [String]
+        let metadata: BookMetadata?
         switch kind {
         case "PDF":
-            pages = try await Task.detached(priority: .userInitiated) { try readPDF(url) }.value
+            (pages, metadata) = try await Task.detached(priority: .userInitiated) { try readPDF(url) }.value
         case "EPUB", "MOBI":
-            pages = paginate(try await EbookImport.read(url, resources: ebookResources, timeout: timeout).joined(separator: "\n\n"))
+            let ebook = try await EbookImport.readDocument(url, resources: ebookResources, timeout: timeout)
+            pages = paginate(ebook.sections.joined(separator: "\n\n"))
+            metadata = ebook.metadata
         default:
             throw Failure(message: "请选择 PDF、EPUB 或 MOBI 文件。")
         }
@@ -166,17 +211,42 @@ enum BookImport {
         guard pages.contains(where: { !$0.isEmpty }) else {
             throw Failure(message: "文件中没有可提取的文字。扫描版 PDF 需要先进行 OCR。")
         }
-        return Book(name: url.lastPathComponent, kind: kind, pages: pages)
+        return Book(name: url.lastPathComponent, kind: kind, pages: pages, metadata: metadata)
     }
 
-    private static func readPDF(_ url: URL) throws -> [String] {
+    private static func readPDF(_ url: URL) throws -> ([String], BookMetadata?) {
         guard let doc = PDFDocument(url: url), !doc.isLocked else {
             throw Failure(message: "无法读取 PDF。请检查文件是否完整，或先解除密码保护。")
         }
-        return (0..<doc.pageCount).map { index in
+        let attributes = doc.documentAttributes
+        let xmp = pdfMetadata(doc)
+        let metadata = BookMetadata(title: attributes?[PDFDocumentAttribute.titleAttribute] as? String,
+                                    author: attributes?[PDFDocumentAttribute.authorAttribute] as? String)
+            .fillingMissing(from: xmp)
+        let pages = (0..<doc.pageCount).map { index in
             let text = doc.page(at: index)?.string ?? ""
             return clean(text.replacingOccurrences(of: #"(?<=[\p{Han}\p{Hiragana}\p{Katakana}、])\h*\n\h*(?=[\p{Han}\p{Hiragana}\p{Katakana}])"#, with: "", options: .regularExpression))
         }
+        return (pages, metadata)
+    }
+
+    private static func pdfMetadata(_ document: PDFDocument) -> BookMetadata? {
+        guard let reference = document.documentRef, let catalog = reference.catalog else { return nil }
+        var stream: CGPDFStreamRef?
+        guard CGPDFDictionaryGetStream(catalog, "Metadata", &stream), let stream else { return nil }
+        var format = CGPDFDataFormat.raw
+        guard let data = CGPDFStreamCopyData(stream, &format) as Data?, data.count <= 1_000_000,
+              let xml = try? XMLDocument(data: data, options: .nodeLoadExternalEntitiesNever) else { return nil }
+        func field(_ key: String, multiple: Bool = false) -> String? {
+            let query = "//*[local-name()='\(key)' and namespace-uri()='http://purl.org/dc/elements/1.1/']"
+            guard let node = try? xml.nodes(forXPath: query).first else { return nil }
+            let items = (try? node.nodes(forXPath: ".//*[local-name()='li']")) ?? []
+            if items.isEmpty { return node.stringValue }
+            let values = items.compactMap(\.stringValue)
+            return multiple ? values.joined(separator: "、") : values.first
+        }
+        return BookMetadata(title: field("title"), author: field("creator", multiple: true),
+                            publisher: field("publisher", multiple: true), published: field("date"))
     }
 
     private static func clean(_ text: String) -> String {
@@ -257,7 +327,8 @@ final class Lexicon {
         guard value.dictionaryName == nil, value.english == nil,
               let entry = entries(value.head).first(where: { $0.reading == value.reading }) else { return value }
         return Definition(head: value.head, reading: value.reading, chinese: value.chinese,
-                          english: definition(entry).english, source: value.source, etymology: value.etymology)
+                          english: definition(entry).english, source: value.source, etymology: value.etymology,
+                          modelNote: value.modelNote)
     }
 
     func partsOfSpeech(for value: Definition) -> [DictionaryPartOfSpeech] {
@@ -353,7 +424,7 @@ final class Lexicon {
         return Definition(head: entry?.head ?? head, reading: entry?.reading ?? reading,
                           chinese: value.chinese, english: value.english,
                           source: value.source, etymology: value.etymology,
-                          dictionaryName: value.dictionaryName, dictionaryText: value.dictionaryText)
+                          dictionaryName: value.dictionaryName, dictionaryText: value.dictionaryText, modelNote: value.modelNote)
     }
 
     func normalizedWords(_ words: [SavedWord]) -> [SavedWord] {

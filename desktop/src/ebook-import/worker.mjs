@@ -4,6 +4,14 @@ import { unzipSync, unzlibSync } from '../vendor/fflate/fflate.mjs';
 import { LIMITS, inspectZip, inspectMobi } from './zip.mjs';
 import { decodeText, plainText } from './text.mjs';
 let book;
+function metadataText(value) {
+  if (typeof value === 'string') return value.trim().slice(0, 500);
+  if (Array.isArray(value)) return value.map(metadataText).filter(Boolean).join('、').slice(0, 500);
+  if (value?.name) return metadataText(value.name);
+  if (value && typeof value === 'object') return Object.values(value).map(metadataText).find(Boolean) ?? '';
+  return '';
+}
+
 async function run() {
   const { bytes: input, kind, name } = await window.ebookImport.input();
   const bytes = new Uint8Array(input);
@@ -29,7 +37,7 @@ async function run() {
       }
     }
     if (count % 1000) sections.push(JSON.stringify(chunk));
-    return sections;
+    return { sections };
   }
   let loadText;
   if (kind === 'EPUB') {
@@ -69,10 +77,14 @@ async function run() {
     if (text) sections.push(text);
   }
   if (!sections.length) throw new Error('电子书没有可读取的正文。');
-  return sections;
+  const metadata = book.metadata ?? {};
+  return { sections, metadata: {
+    title: metadataText(metadata.title), author: metadataText(metadata.author),
+    publisher: metadataText(metadata.publisher), published: metadataText(metadata.published)
+  } };
 }
 try {
-  window.ebookImport.result({ ok: true, sections: await run() });
+  window.ebookImport.result({ ok: true, ...await run() });
 } catch (error) {
   const message = error.message || '电子书解析失败。';
   const friendly = /[\u4e00-\u9fff]/u.test(message) ? message : '文件格式无效或文件损坏，无法导入。';

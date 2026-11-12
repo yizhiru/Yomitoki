@@ -33,7 +33,11 @@ class Store {
       this.data = next;
     } finally { fs.rmSync(temporary, { force: true }); }
   }
-  get book() { return this.data.books.find(book => book.id === this.data.current) || this.data.books[0]; }
+  get book() {
+    if (this.data.current === null) return undefined;
+    return this.data.books.find(book => book.id === this.data.current)
+      ?? this.data.books.find(book => !book.removedFromShelf);
+  }
   saveNote({ id, bookID, page, start, end, body }) {
     if (typeof body !== 'string') throw new Error('笔记正文无效。');
     if (id !== undefined) {

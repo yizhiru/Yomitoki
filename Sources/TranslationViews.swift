@@ -95,17 +95,23 @@ struct LocalTranslationSettingsContent: View {
 struct LocalTranslationResultView: View {
     @ObservedObject var translation: LocalTranslation
     let fontSize: Double
+    var discuss: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label("本地翻译", systemImage: "character.bubble").font(.system(size: 14, weight: .semibold))
                 Spacer()
+                if let discuss { Button("追问", action: discuss).buttonStyle(AppActionButtonStyle()) }
                 Button("返回词典", action: translation.clear).font(.system(size: 13))
             }.padding(.horizontal, 21).frame(height: 52)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    Text("日语原文").font(.system(size: 14, weight: .semibold))
+                    Text(translation.source ?? "").font(.system(size: fontSize))
+                        .lineSpacing(7).textSelection(.enabled)
+                    Divider()
                     Text(TranslationModel.name).font(.system(size: 13)).foregroundStyle(.secondary)
                     if translation.translating {
                         HStack(spacing: 8) {
@@ -131,10 +137,6 @@ struct LocalTranslationResultView: View {
                     if let warning = translation.cacheWarning {
                         Text(warning).font(AppTheme.captionFont).foregroundStyle(.secondary)
                     }
-                    Divider()
-                    Text("日语原文").font(.system(size: 14, weight: .semibold))
-                    Text(translation.source ?? "").font(.system(size: fontSize))
-                        .lineSpacing(7).textSelection(.enabled)
                     Text("机器翻译仅供阅读参考。").font(AppTheme.captionFont).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(21)
             }

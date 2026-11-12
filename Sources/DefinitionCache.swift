@@ -6,8 +6,8 @@ struct DefinitionResolution {
     var warning: String? = nil
 }
 
-/// One stored definition per lemma, reading, and model configuration. Surface forms
-/// are aliases, so inflections do not create duplicate dictionary records.
+/// Groups original-sentence explanations by lemma, reading, and model configuration.
+/// Surface forms remain aliases of their dictionary entry.
 @MainActor final class DefinitionResolver {
     private struct Scope: Codable, Equatable {
         let provider: ModelProvider
@@ -27,6 +27,12 @@ struct DefinitionResolution {
         var forms: [String]
         var context: SentenceContext?
         var aliases: [Alias]?
+        var contexts: [ContextualDefinition]?
+    }
+
+    private struct ContextualDefinition: Codable {
+        let context: SentenceContext
+        let definition: Definition
     }
 
     private struct Alias: Codable, Equatable {
@@ -61,7 +67,8 @@ struct DefinitionResolution {
     }
 
     func resolve(_ selected: Lookup, settings: DefinitionSettings, savedWords: [SavedWord],
-                 refresh: Bool = false, fetch: () async throws -> Definition) async throws -> DefinitionResolution {
+                 refresh: Bool = false, requireExactContext: Bool = false,
+                 fetch: () async throws -> Definition) async throws -> DefinitionResolution {
         let scope = try Scope(settings)
         let canonical = dictionary.normalized(selected.definition)
         let alias = Alias(head: canonical.head, reading: canonical.reading, surface: selected.occurrence.context.word)
@@ -71,19 +78,24 @@ struct DefinitionResolution {
                                               aliases: $0.forms, surface: selected.occurrence.context.word)
                                        || $0.aliases?.contains(alias) == true)
             }
-            let cached = candidates.count == 1 ? candidates.first : nil
-            if let cached, cached.context == selected.occurrence.context {
-                return DefinitionResolution(definition: cached.definition, reused: true, warning: loadWarning)
+            let context = selected.occurrence.context
+            let exact = candidates.compactMap { entry in
+                entry.contexts?.first { $0.context == context }?.definition
+                    ?? (entry.context == context ? entry.definition : nil)
+            }
+            if exact.count == 1, let definition = exact.first {
+                return DefinitionResolution(definition: definition, reused: true, warning: loadWarning)
             }
             // A saved example can carry a meaning specific to this exact sentence.
             // Prefer it to a more recently generated, general word-level cache entry.
             if let saved = savedDefinition(for: canonical, context: selected.occurrence.context, words: savedWords, exact: true) {
                 return DefinitionResolution(definition: saved, reused: true)
             }
-            if let cached {
+            if !requireExactContext, candidates.count == 1, let cached = candidates.first {
                 return DefinitionResolution(definition: cached.definition, reused: true, warning: loadWarning)
             }
-            if let saved = savedDefinition(for: canonical, context: selected.occurrence.context, words: savedWords, exact: false) {
+            if !requireExactContext,
+               let saved = savedDefinition(for: canonical, context: context, words: savedWords, exact: false) {
                 return DefinitionResolution(definition: saved, reused: true)
             }
         }
@@ -97,6 +109,13 @@ struct DefinitionResolution {
         let key = identity(definition)
         let form = selected.occurrence.context.word
         if let index = store.entries.firstIndex(where: { $0.scope == scope && identity($0.definition) == key }) {
+            var contexts = store.entries[index].contexts ?? []
+            if contexts.isEmpty, let previous = store.entries[index].context {
+                contexts.append(ContextualDefinition(context: previous, definition: store.entries[index].definition))
+            }
+            contexts.removeAll { $0.context == selected.occurrence.context }
+            contexts.append(ContextualDefinition(context: selected.occurrence.context, definition: definition))
+            store.entries[index].contexts = contexts
             store.entries[index].definition = definition
             store.entries[index].forms = Array(Set(store.entries[index].forms + [form])).sorted()
             store.entries[index].context = selected.occurrence.context

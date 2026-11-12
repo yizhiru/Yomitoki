@@ -4,3 +4,22 @@ dist/
 node_modules/
 desktop/test-results/
 desktop/playwright-report/
+
+# Local tooling and caches
+/.impeccable/
+.swiftpm/
+__pycache__/
+*.log
+
+# Local configuration, credentials, and application databases
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*

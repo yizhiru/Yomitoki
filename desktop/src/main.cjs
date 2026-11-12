@@ -5,7 +5,7 @@ const { pathToFileURL } = require('node:url');
 const { randomUUID } = require('node:crypto');
 const { Store, exportWords } = require('./store.cjs');
 const { Dictionary, ImportedDictionary, selectionLevel } = require('./dictionary.cjs');
-const { readBook } = require('./imports.cjs');
+const { readBook, bookMetadata } = require('./imports.cjs');
 const { readEbook } = require('./ebook-import.cjs');
 const { endpoint, completion, decodeAnalysis, decodeDefinition, prompts } = require('./models.cjs');
 const { LocalEngine, MODEL, validateModel, downloadModel } = require('./translation.cjs');
@@ -21,8 +21,9 @@ const state = () => ({ ...store.publicState(), version: app.getVersion(), platfo
   selectedDictionary: importedDictionary?.info.id || '', dictionaryMessage });
 const cancel = () => { generation++; request?.abort(); request = null; };
 function selected(input) {
-  const book = store.book, text = book.pages[book.page];
-  if (!input || input.bookID !== book.id || input.page !== book.page) throw new Error('阅读位置已改变，请重新选中文字。');
+  const book = store.book;
+  if (!book || !input || input.bookID !== book.id || input.page !== book.page) throw new Error('阅读位置已改变，请重新选中文字。');
+  const text = book.pages[book.page];
   const level = selectionLevel(text, input.start, input.end, dictionary.tokenizer, form => Boolean(importedDictionary?.meaning([form])) || dictionary.entries(form).length > 0);
   if (level === 'none' || input.end - input.start > 8000) throw new Error('请选中有效文字（最多 8000 字符）。');
   return { text: text.slice(input.start, input.end), before: text.slice(Math.max(0, input.start - 1600), input.start),
@@ -30,6 +31,18 @@ function selected(input) {
     start: input.start, end: input.end, filename: book.name, kind: book.kind };
 }
 function sourceKey(selection) { return [selection.bookID, selection.page, selection.start, selection.end, selection.text].join('|'); }
+function wordContext(book, selection) {
+  const previous = book.kind === 'PDF' ? book.pages[book.page - 1]?.slice(-1600) ?? '' : '';
+  const following = book.kind === 'PDF' ? book.pages[book.page + 1]?.slice(0, 1600) ?? '' : '';
+  const before = (previous + selection.before).slice(-1600);
+  const after = (selection.after + following).slice(0, 1600);
+  const boundaries = /[。！？!?]+[」』）】〕〉》”’]*|\n\s*\n/g;
+  let start = 0, end = after.length;
+  for (const match of before.matchAll(boundaries)) start = match.index + match[0].length;
+  const stop = after.matchAll(boundaries).next().value;
+  if (stop) end = stop.index + (stop[0].startsWith('\n') ? 0 : stop[0].length);
+  return { before: before.slice(start).trimStart(), word: selection.text, after: after.slice(0, end).trimEnd() };
+}
 async function apiKey() {
   const blob = store.data.settings.keyBlob;
   if (!blob) throw new Error('请先在设置中保存 API key。');
@@ -73,25 +86,27 @@ async function query(action, input) {
   if (['analysis', 'translate'].includes(action) && text.length > 2000) throw new Error('一次最多选择 2000 字符。');
   if (action === 'dictionary' || action === 'definition') {
     const definition = dictionary.lookup(text, before, after);
+    const context = wordContext(store.book, selection);
+    const local = importedDictionary ? importedDictionary.lookup(text, definition) : definition;
     if (action === 'dictionary') {
-      const local = importedDictionary ? importedDictionary.lookup(text, definition) : definition;
-      lastLookup = { definition: local, selection };
-      return { type: action, definition: local, selection };
+      lastLookup = { definition: local, selection, context };
+      return { type: action, definition: local, selection, context };
     }
     const settings = store.data.settings;
-    const key = store.cacheKey('definition-v1', settings.provider, endpoint(settings).href, settings.model, definition.head, definition.reading);
+    const key = store.cacheKey('definition-context-v2', settings.provider, endpoint(settings).href, settings.model, context);
     let result = !input.refresh && store.cached(key), cached = Boolean(result);
     if (!result) {
       result = decodeDefinition(await completion(settings, await apiKey(), [{ role: 'system', content: prompts.definition },
-        { role: 'user', content: JSON.stringify({ before, word: text, after }) }], { signal, maxTokens: 1024 }));
+        { role: 'user', content: JSON.stringify(context) }], { signal, maxTokens: 1024 }));
       check();
       const dictionaryValue = dictionary.lookup(result.head);
       result = { ...result, english: dictionaryValue.english || definition.english, pos: dictionaryValue.pos,
         source: `${settings.provider === 'deepseek' ? 'DeepSeek' : '自定义模型'} · ${settings.model}` };
       store.cache(key, result);
     }
-    check(); lastLookup = { definition: result, selection };
-    return { type: action, definition: result, selection, cached };
+    result = { ...result, dictionaryName: local.dictionaryName, dictionaryText: local.dictionaryText };
+    check(); lastLookup = { definition: result, selection, context };
+    return { type: action, definition: result, selection, context, cached };
   }
   if (action === 'analysis') {
     const settings = store.data.settings;
@@ -165,7 +180,7 @@ async function changeDictionary(action, input) {
     const file = chosen.filePaths[0];
     const format = path.extname(file).toLowerCase();
     if (!['.mdx', '.zip'].includes(format)) throw new Error('请选择 MDX 或 Yomitan ZIP 词典。');
-    const chunks = await readEbook(file, { parent: window, timeoutMs: 120000 });
+    const { sections: chunks } = await readEbook(file, { parent: window, timeoutMs: 120000 });
     const name = format === '.zip' ? chunks.shift() : path.basename(file, path.extname(file));
     const info = { id: randomUUID(), name };
     const index = new ImportedDictionary(info, chunks);
@@ -190,7 +205,7 @@ function readingOffset(book, page, offset) {
 }
 function saveReadingProgress({ bookID, page, offset }) {
   const book = store.book;
-  if (book.id !== bookID || book.page !== page) return false;
+  if (!book || book.id !== bookID || book.page !== page) return false;
   const position = readingOffset(book, page, offset);
   if ((book.readingOffset ?? 0) !== position) {
     store.change(data => { data.books.find(item => item.id === bookID).readingOffset = position; });
@@ -218,6 +233,10 @@ async function dispatch(action, input = {}) {
           const existing = data.books.find(item => item.name === book.name && item.kind === book.kind
             && item.pages.length === book.pages.length && item.pages.every((page, index) => page === book.pages[index]));
           if (!existing) data.books.push(book);
+          else {
+            delete existing.removedFromShelf;
+            if (book.metadata) existing.metadata = { ...book.metadata, ...existing.metadata };
+          }
           data.current = existing?.id ?? book.id;
         });
         return state();
@@ -227,6 +246,24 @@ async function dispatch(action, input = {}) {
       } finally { if (importing === controller) importing = null; }
     }
     case 'cancel-import': importing?.abort(); return true;
+    case 'remove-from-shelf': {
+      const book = store.data.books.find(item => item.id === input.bookID && !item.removedFromShelf);
+      if (!book) return state();
+      const removingCurrent = store.book?.id === book.id;
+      store.change(data => {
+        data.books.find(item => item.id === book.id).removedFromShelf = true;
+        if (removingCurrent) data.current = data.books.find(item => !item.removedFromShelf)?.id ?? null;
+      });
+      if (removingCurrent) { importing?.abort(); cancel(); lastLookup = null; }
+      return state();
+    }
+    case 'save-book-metadata': {
+      if (!store.data.books.some(book => book.id === input.bookID)) throw new Error('找不到这本书。');
+      store.change(data => {
+        data.books.find(book => book.id === input.bookID).metadata = bookMetadata(input.metadata);
+      });
+      return state();
+    }
     case 'reading-progress': return saveReadingProgress(input);
     case 'navigate': {
       importing?.abort();
@@ -248,22 +285,26 @@ async function dispatch(action, input = {}) {
     case 'save-note': store.saveNote(input); return state();
     case 'delete-note': store.deleteNote(input.id); return state();
     case 'word-at': {
-      const text = store.book.pages[store.book.page];
+      const book = store.book;
+      if (!book) return null;
+      const text = book.pages[book.page];
       if (!Number.isInteger(input.offset) || input.offset < 0 || input.offset >= text.length) return null;
       return dictionary.wordAt(text, input.offset);
     }
     case 'dictionary': case 'definition': case 'analysis': case 'translate': case 'chat': return query(action, input);
     case 'save-word': {
       if (!lastLookup) throw new Error('请先查询单词。');
-      const { definition, selection } = lastLookup, id = definition.head + '\n' + definition.reading;
+      const { definition, selection, context } = lastLookup, id = definition.head + '\n' + definition.reading;
       store.change(data => {
         let word = data.words.find(word => word.id === id);
         if (!word) { word = { id, definition, examples: [] }; data.words.push(word); }
-        if (!definition.dictionaryName && definition.source !== '离线词典') word.definition = definition;
+        const fromModel = definition.source && definition.source !== '离线词典';
+        if (fromModel || !word.definition.source) word.definition = definition;
         const example = { filename: selection.filename, kind: selection.kind, page: selection.page,
-          start: selection.start, bookID: selection.bookID, sentence: selection.before.slice(-250) + selection.text + selection.after.slice(0, 250), definition };
+          start: selection.start, bookID: selection.bookID, sentence: context.before + context.word + context.after, definition };
         const index = word.examples.findIndex(item => item.bookID === selection.bookID && item.page === selection.page && item.start === selection.start);
-        if (index < 0) word.examples.push(example); else word.examples[index] = example;
+        if (index < 0) word.examples.push(example);
+        else if (fromModel || !word.examples[index].definition?.source) word.examples[index] = example;
       });
       return state();
     }
@@ -332,7 +373,11 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: '文件', submenu: [
     { label: '导入文档…', accelerator: 'CmdOrCtrl+O', click: () => window.webContents.send('import-request') }, { role: 'quit', label: '退出' }] },
     { label: '编辑', submenu: [{ role: 'undo', label: '撤销' }, { role: 'redo', label: '重做' }, { type: 'separator' },
-      { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] }]));
+      { role: 'cut', label: '剪切' }, { role: 'copy', label: '复制' }, { role: 'paste', label: '粘贴' }, { role: 'selectAll', label: '全选' }] },
+    { label: '阅读', submenu: [
+      { label: '大模型释义', accelerator: 'CmdOrCtrl+Shift+L', click: () => window.webContents.send('model-definition-request') }
+    ] },
+    ...(!app.isPackaged ? [{ label: '开发', submenu: [{ role: 'reload', label: '刷新界面' }] }] : [])]));
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));

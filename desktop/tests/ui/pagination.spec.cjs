@@ -20,13 +20,30 @@ test('EPUB adapts to the viewport and turns pages without vertical scrolling', a
       env: { ...process.env, YOMITOKI_DATA_DIRECTORY: directory }
     });
     const page = await app.firstWindow();
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1020, 620));
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(900, 600));
     const location = page.locator('#book-location');
     await expect(location).toHaveText(/第 1 \/ 2 节 · 页 1 \/ (?:[2-9]|[1-9]\d+)$/);
     const pageCount = async () => Number((await location.textContent()).split(' / ').at(-1));
+    const collapsedCount = await pageCount();
+    const header = page.locator('main > header');
+    const initialHeight = (await header.boundingBox()).height;
+    await expect(page.locator('#detail')).toBeHidden();
+    await page.locator('#reader').evaluate(node => {
+      const start = node.textContent.indexOf('傘');
+      const range = document.createRange();
+      range.setStart(node.firstChild, start);
+      range.setEnd(node.firstChild, start + 1);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+    });
+    await page.locator('#selection-toolbar').getByRole('button', { name: '词典释义', exact: true }).click();
+    await expect(page.locator('#detail-body')).toContainText('JMdict');
+    expect((await header.boundingBox()).height).toBe(initialHeight);
+    await expect.poll(pageCount).toBeGreaterThan(collapsedCount);
     const small = await pageCount();
     await page.locator('#next').click();
     await expect(location).toHaveText(new RegExp(`第 1 / 2 节 · 页 2 / ${small}$`));
+    await expect(page.locator('#detail')).toBeVisible();
     const viewport = page.locator('#reading-scroll');
     const scrolled = await viewport.evaluate(node => ({ left: node.scrollLeft, width: node.clientWidth, top: node.scrollTop }));
     expect(scrolled.left).toBe(scrolled.width);
@@ -48,6 +65,7 @@ test('EPUB adapts to the viewport and turns pages without vertical scrolling', a
       return null;
     });
     expect(excerpt).toBeTruthy();
+    await page.locator('#reading-more').click();
     await page.locator('#write-note').click();
     await expect(page.locator('#note-excerpt')).toHaveText(excerpt);
     await page.locator('#cancel-note').click();

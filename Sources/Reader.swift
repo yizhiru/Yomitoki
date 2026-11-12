@@ -21,15 +21,17 @@ private struct SidebarButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     var selected = false
     var emphasized = false
+    var navigation = false
     var minimumHeight: CGFloat = 46
 
     func makeBody(configuration: Configuration) -> some View {
+        let filled = navigation && selected
         configuration.label
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .leading)
-            .foregroundStyle(selected || emphasized ? accent : ink)
-            .background(selected || emphasized || configuration.isPressed ? tintWash : .clear,
+            .foregroundStyle(filled ? .white : (selected || emphasized ? accent : ink))
+            .background(filled ? accent : (selected || emphasized || configuration.isPressed ? tintWash : .clear),
                         in: RoundedRectangle(cornerRadius: 8))
             .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.55)
             .contentShape(Rectangle())
@@ -37,15 +39,18 @@ private struct SidebarButtonStyle: ButtonStyle {
 }
 
 struct ReaderView: View {
-    private enum NotebookSection: String, CaseIterable { case notes = "笔记", analyses = "长句分析", chats = "大模型对话" }
+    private enum HistorySection: String, CaseIterable { case analyses = "长句分析", chats = "大模型对话" }
     @ObservedObject var state: ReaderState
     @ObservedObject var translation: LocalTranslation
     @ObservedObject var sentenceAnalysis: SentenceAnalysisState
     @ObservedObject var modelChat: ModelChatState
     @ViewState private var showingExport = false
     @ViewState private var noteDraft: ReadingNote?
+    @ViewState private var bookInfo: Book?
+    @ViewState private var bookToRemove: Book?
     @ViewState private var noteToDelete: ReadingNote?
     @ViewState private var notesBookID: UUID?
+    @ViewState private var historyBookID: UUID?
     @ViewState private var pagination: ReadingPagination?
     @ViewState private var showingReadingSearch = false
     @ViewState private var readingQuery = ""
@@ -54,41 +59,39 @@ struct ReaderView: View {
     @ViewState private var readingSearchCompleted = false
     @FocusState private var readingSearchFocused: Bool
     @ViewState private var notesQuery = ""
-    @ViewState private var notebookSection = NotebookSection.notes
+    @ViewState private var historySection = HistorySection.analyses
     @ViewState private var historyDeletion: (() -> Void)?
+    @ViewState private var inspectorOverride: Bool?
     @AppStorage("definitionFontSize") private var definitionFontSize = AppTheme.defaultDefinitionSize
     @AppStorage("singleClickLookupEnabled") private var singleClickLookupEnabled = false
 
     var body: some View {
-        PersistedHSplitView(identifier: "sidebar", minimumWidth: 198, idealWidth: 220,
-                           maximumWidth: 340, otherMinimumWidth: 660) {
-            sidebar
-        } trailing: {
-            if state.inNotebook {
-                notebook
-                    .frame(minWidth: 620)
-            } else if state.destination == .notes {
-                readingNotes
-            } else {
-                PersistedHSplitView(identifier: "inspector", savedEdge: .trailing,
-                                   minimumWidth: 300, idealWidth: 380, maximumWidth: 700,
-                                   otherMinimumWidth: 360) {
-                    reader
-                } trailing: {
-                    inspector
-                }
-            }
+        GeometryReader { geometry in
+            workspace(compact: geometry.size.width < 1100)
+                .onChange(of: geometry.size.width < 1100) { inspectorOverride = nil }
         }
         .background(paper)
         .font(AppTheme.interfaceFont).tint(accent)
         .foregroundStyle(ink)
         .preferredColorScheme(.light)
         .frame(minWidth: 900, minHeight: 570)
+        .onReceive(state.$lookup) { lookup in
+            if lookup != nil && inspectorOverride == false { inspectorOverride = nil }
+        }
+        .onReceive(sentenceAnalysis.$source) { source in
+            if source != nil && inspectorOverride == false { inspectorOverride = nil }
+        }
+        .onReceive(translation.$source) { source in
+            if source != nil && inspectorOverride == false { inspectorOverride = nil }
+        }
+        .onReceive(modelChat.$isPresented) { presented in
+            if presented && inspectorOverride == false { inspectorOverride = nil }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             state.flushReadingProgress()
         }
         .onDisappear { state.flushReadingProgress() }
-        .onChange(of: state.book.id) {
+        .onChange(of: state.activeBook?.id) {
             readingQuery = ""
             readingMatches = []
             readingMatchIndex = nil
@@ -101,6 +104,16 @@ struct ReaderView: View {
             ReadingNoteEditor(note: note, book: state.library.books.first { $0.id == note.bookID },
                               save: state.saveNote)
         }
+        .sheet(item: $bookInfo) { book in
+            BookInfoEditor(book: book) { state.saveBookMetadata($0, for: book.id) }
+        }
+        .confirmationDialog("移出书架？", isPresented: Binding(
+            get: { bookToRemove != nil }, set: { if !$0 { bookToRemove = nil } }
+        ), titleVisibility: .visible, presenting: bookToRemove) { book in
+            Button("移出书架", role: .destructive) { state.removeFromShelf(book.id) }
+        } message: { book in
+            Text("将《\(book.title)》移出书架。原文件、笔记和历史记录会保留。")
+        }
         .confirmationDialog("删除这条笔记？", isPresented: Binding(
             get: { noteToDelete != nil }, set: { if !$0 { noteToDelete = nil } }
         ), titleVisibility: .visible, presenting: noteToDelete) { note in
@@ -111,11 +124,51 @@ struct ReaderView: View {
         } message: { Text(state.failure ?? "") }
     }
 
+    private func workspace(compact: Bool) -> some View {
+        let hasResult = state.lookup != nil || sentenceAnalysis.source != nil
+            || translation.source != nil || modelChat.isPresented
+        let inspectorVisible = inspectorOverride ?? (!compact || hasResult)
+        return PersistedHSplitView(identifier: "sidebar", minimumWidth: 198, idealWidth: 220,
+                           maximumWidth: 340, otherMinimumWidth: 660) {
+            sidebar
+        } trailing: {
+            if state.inNotebook {
+                notebook
+                    .frame(minWidth: 620)
+            } else if state.destination == .notes || state.destination == .history {
+                readingRecords(isHistory: state.destination == .history)
+            } else if state.activeBook != nil {
+                PersistedHSplitView(identifier: "inspector", savedEdge: .trailing,
+                                   minimumWidth: 300, idealWidth: 380, maximumWidth: 700,
+                                   otherMinimumWidth: 360, trailingCollapsed: !inspectorVisible) {
+                    GeometryReader { geometry in
+                        reader(inspectorVisible: inspectorVisible, compactControls: geometry.size.width < 480) {
+                            inspectorOverride = !inspectorVisible
+                        }
+                    }
+                } trailing: {
+                    inspector
+                }
+            } else {
+                ContentUnavailableView {
+                    Label("书架为空", systemImage: "books.vertical")
+                } actions: {
+                    Button("导入书籍", action: state.importBook)
+                        .buttonStyle(AppActionButtonStyle(prominent: true)).disabled(state.importing)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 10) {
-                Image(systemName: "book.closed").font(.system(size: 22)).foregroundStyle(accent)
-                Text("读解").font(.system(size: 22, weight: .semibold))
+                Image(systemName: "book.closed.fill").font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(.white).frame(width: 36, height: 36)
+                    .background(accent, in: RoundedRectangle(cornerRadius: 9))
+                    .accessibilityHidden(true)
+                Text("读解").font(.system(size: 24, weight: .bold))
                     .help("読み解き · Yomitoki")
             }.padding(.horizontal, 8).padding(.top, 6)
             VStack(spacing: 4) {
@@ -125,8 +178,12 @@ struct ReaderView: View {
                     state.inNotebook = true
                 }
                 nav("笔记本", "note.text", selected: state.destination == .notes, count: state.library.notes.count) {
-                    notesBookID = notesBookID ?? state.book.id
+                    notesBookID = notesBookID ?? state.activeBook?.id
                     state.destination = .notes
+                }
+                nav("历史记录", "clock", selected: state.destination == .history) {
+                    historyBookID = historyBookID ?? state.activeBook?.id
+                    state.destination = .history
                 }
             }
             VStack(alignment: .leading, spacing: 6) {
@@ -136,7 +193,7 @@ struct ReaderView: View {
                     HStack(spacing: 10) {
                         if state.importing { ProgressView().controlSize(.small).frame(width: 20) }
                         else { Image(systemName: "plus").frame(width: 20) }
-                        Text(state.importing ? "读取中…" : "导入")
+                        Text(state.importing ? "读取中…" : "导入书籍")
                     }.font(.system(size: 16, weight: .medium))
                 }.buttonStyle(SidebarButtonStyle(emphasized: true))
                     .help("导入 PDF、EPUB 或 MOBI 文件").accessibilityLabel("导入文件").disabled(state.importing)
@@ -147,14 +204,22 @@ struct ReaderView: View {
                 }
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
-                        ForEach(state.library.books) { book in
+                        ForEach(state.shelfBooks) { book in
                             Button { state.openBook(book.id) } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: "doc.text").frame(width: 20).foregroundStyle(muted)
                                     Text(book.title).lineLimit(2)
                                 }
                                 .font(.system(size: 15, weight: book.id == state.book.id ? .medium : .regular))
-                            }.buttonStyle(SidebarButtonStyle(selected: book.id == state.book.id)).help(book.name)
+                            }.buttonStyle(SidebarButtonStyle(selected: book.id == state.book.id)).help(book.title)
+                                .contextMenu {
+                                    Button { bookInfo = book } label: {
+                                        Label("文档信息", systemImage: "info.circle")
+                                    }
+                                    Button(role: .destructive) { bookToRemove = book } label: {
+                                        Label("移出书架", systemImage: "minus.circle")
+                                    }
+                                }
                         }
                     }
                 }
@@ -175,10 +240,14 @@ struct ReaderView: View {
                 Image(systemName: icon).frame(width: 20)
                 Text(name)
                 Spacer(minLength: 4)
-                if let count { Text(count.formatted()).font(.system(size: 12, design: .monospaced)).foregroundStyle(muted) }
+                if let count {
+                    Text(count.formatted()).font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(selected ? Color.white.opacity(0.88) : muted)
+                }
             }
             .font(.system(size: 17, weight: .semibold))
-        }.buttonStyle(SidebarButtonStyle(selected: selected, minimumHeight: 52))
+        }.buttonStyle(SidebarButtonStyle(selected: selected, navigation: true, minimumHeight: 52))
+            .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private var paginated: Bool { state.book.kind == "EPUB" }
@@ -212,7 +281,7 @@ struct ReaderView: View {
                     onDictionaryLookup: { range in state.textSelection = range; state.defineSelection() },
                     onModelLookup: state.defineModelSelection, onTranslation: state.translateSelection,
                     selectionLevel: state.selectionLevel,
-                    onSentenceAnalysis: state.analyzeSelection, onModelChat: state.chatSelection,
+                    onSentenceAnalysis: state.analyzeSelection, onModelChat: { state.chatSelection($0) },
                     searchHighlight: searchHighlight, pageSize: size,
                     readingOffset: state.readingOffset, onPagination: { value in
                         if value.revision == state.revision { pagination = value }
@@ -273,18 +342,26 @@ struct ReaderView: View {
             Button { showingReadingSearch = false } label: {
                 Label("关闭搜索", systemImage: "xmark")
             }.labelStyle(.iconOnly)
-        }.padding(.horizontal, 16).padding(.vertical, 8)
+        }.buttonStyle(AppActionButtonStyle())
+            .padding(.horizontal, 16).padding(.vertical, 8).background(AppTheme.surface)
     }
 
-    var reader: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
+    private func reader(inspectorVisible: Bool, compactControls: Bool, toggleInspector: @escaping () -> Void) -> some View {
+        let inspectorLabel = inspectorVisible ? "收起右栏" : "展开右栏"
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: compactControls ? 5 : 8) {
                 HStack(spacing: 6) {
                     Text(state.book.kind).font(.system(size: 12, weight: .semibold, design: .monospaced)).tracking(1)
-                    Text(" / ").foregroundStyle(rule)
-                    Text(state.book.name).lineLimit(1).help(state.book.name)
+                        .fixedSize()
+                    if !compactControls {
+                        Text(" / ").foregroundStyle(rule)
+                        Text(state.book.title).lineLimit(1).help(state.book.title)
+                    }
                 }.font(.system(size: 13)).foregroundStyle(muted)
-                Spacer()
+                Spacer(minLength: 0)
+                Button { bookInfo = state.book } label: {
+                    Label("文档信息", systemImage: "info.circle")
+                }.labelStyle(.iconOnly).help("文档信息")
                 Button {
                     showingReadingSearch = true
                     readingSearchFocused = true
@@ -293,19 +370,19 @@ struct ReaderView: View {
                 }.labelStyle(.iconOnly).keyboardShortcut("f").help("搜索当前书籍")
                 if state.textSelection == nil || state.selectedContentLevel == .word {
                     Button(action: state.defineSelection) {
-                        Label("词典释义", systemImage: "text.magnifyingglass")
+                        readerControl("词典释义", icon: "text.magnifyingglass", compact: compactControls)
                     }.tint(accent).disabled(state.textSelection == nil).help("查询选中文字的离线词典释义")
                 }
                 if state.canTranslateSelection {
                     Button {
                         if let range = state.textSelection { state.translateSelection(range) }
-                    } label: { Label("本地翻译", systemImage: "character.bubble") }
+                    } label: { readerControl("本地翻译", icon: "character.bubble", compact: compactControls) }
                         .tint(accent).help("在本机翻译选中的句子或段落")
                 }
                 if state.canAnalyzeSelection {
                     Button {
                         if let range = state.textSelection { state.analyzeSelection(range) }
-                    } label: { Label("长句分析", systemImage: "text.alignleft") }
+                    } label: { readerControl("长句分析", icon: "text.alignleft", compact: compactControls) }
                         .tint(accent).help("使用已配置的大模型分析句子结构与修饰层级")
                 }
                 Button(action: state.openChat) {
@@ -315,14 +392,19 @@ struct ReaderView: View {
                     .help(state.textSelection == nil ? "继续上次的大模型对话" : "与大模型讨论选中文字")
                 Button { startNote(book: state.book, range: state.noteSelection) } label: {
                     Label("写笔记", systemImage: "square.and.pencil")
-                }.labelStyle(.iconOnly).help("写笔记，可附上所选原文")
+                }.labelStyle(.iconOnly).buttonStyle(AppActionButtonStyle(prominent: true))
+                    .help("写笔记，可附上所选原文")
                 Menu {
                     Button("小") { state.fontSize = 22 }
                     Button("中") { state.fontSize = 26 }
                     Button("大") { state.fontSize = 30 }
                 } label: { Image(systemName: "textformat.size").accessibilityLabel("字号") }
                     .menuStyle(.borderlessButton).fixedSize().help("调整字号")
-            }.padding(.horizontal, 24).frame(height: 52)
+                Button(action: toggleInspector) {
+                    Label(inspectorLabel, systemImage: "sidebar.right")
+                }.labelStyle(.iconOnly).help(inspectorLabel)
+            }.buttonStyle(AppActionButtonStyle(quiet: true))
+                .padding(.horizontal, compactControls ? 8 : 16).frame(minHeight: 56).background(AppTheme.surface)
             Divider().overlay(rule)
             if showingReadingSearch {
                 readingSearchBar
@@ -333,10 +415,6 @@ struct ReaderView: View {
                     Text(state.book.title)
                         .font(.system(size: 26, weight: .medium)).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true).padding(.bottom, 9)
-                    Text(singleClickLookupEnabled ? "单击查词，选文后可翻译、分析或对话"
-                         : "选中文字后，可查词、翻译或与大模型对话")
-                        .font(.system(size: 14)).foregroundStyle(muted)
-                    Spacer().frame(height: 10)
                 }
                 Group {
                     if paginated {
@@ -345,11 +423,13 @@ struct ReaderView: View {
                         readingText()
                     }
                 }.padding(.leading, -8)
-            }.padding(.horizontal, 32).padding(.top, 24).frame(maxWidth: 780).frame(maxWidth: .infinity)
+            }.frame(maxWidth: AppTheme.readingMeasure)
+                .padding(.horizontal, compactControls ? 20 : 30)
+                .padding(.top, AppTheme.readingTopInset).frame(maxWidth: .infinity)
             Divider().overlay(rule)
             HStack {
                 pageButton("上一\(paginated ? "页" : state.book.unit)", "chevron.left",
-                           currentPagination?.previousOffset != nil || state.book.page > 0) {
+                           currentPagination?.previousOffset != nil || state.book.page > 0, compact: compactControls) {
                     turnPage(forward: false)
                 }
                 Spacer()
@@ -367,47 +447,79 @@ struct ReaderView: View {
                 }
                 Spacer()
                 pageButton("下一\(paginated ? "页" : state.book.unit)", "chevron.right",
-                           currentPagination?.nextOffset != nil || state.book.page + 1 < state.book.pages.count) {
+                           currentPagination?.nextOffset != nil || state.book.page + 1 < state.book.pages.count, compact: compactControls) {
                     turnPage(forward: true)
                 }
-            }.padding(.horizontal, 22).frame(height: 49)
+            }.padding(.horizontal, 16).frame(height: 54).background(AppTheme.surface)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    func pageButton(_ label: String, _ icon: String, _ enabled: Bool, action: @escaping () -> Void) -> some View {
+    @ViewBuilder
+    private func readerControl(_ label: String, icon: String, compact: Bool) -> some View {
+        if compact {
+            Label(label, systemImage: icon).labelStyle(.iconOnly)
+        } else {
+            Label(label, systemImage: icon).fixedSize()
+        }
+    }
+
+    func pageButton(_ label: String, _ icon: String, _ enabled: Bool, compact: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(label, systemImage: icon).font(.system(size: 13, weight: .medium))
-                .foregroundStyle(enabled ? accent : muted.opacity(0.5)).padding(7).contentShape(Rectangle())
-        }.buttonStyle(.plain).disabled(!enabled)
+            readerControl(label, icon: icon, compact: compact)
+        }.buttonStyle(AppActionButtonStyle()).help(label).disabled(!enabled)
     }
 
     var inspector: some View {
         Group {
             if modelChat.isPresented {
-                ModelChatView(chat: modelChat, preferences: state.preferences, fontSize: definitionFontSize)
+                ModelChatView(chat: modelChat, preferences: state.preferences, fontSize: definitionFontSize,
+                              returnTitle: sentenceAnalysis.source != nil || translation.source != nil ? "返回阅读结果" : "返回词典")
             } else if sentenceAnalysis.source != nil {
-                SentenceAnalysisView(analysis: sentenceAnalysis, fontSize: definitionFontSize)
+                SentenceAnalysisView(analysis: sentenceAnalysis, fontSize: definitionFontSize,
+                                     discuss: discussSource(sentenceAnalysis.source))
             } else if translation.source != nil {
-                LocalTranslationResultView(translation: translation, fontSize: definitionFontSize)
+                LocalTranslationResultView(translation: translation, fontSize: definitionFontSize,
+                                            discuss: discussSource(translation.source))
             } else {
                 dictionaryInspector
             }
-        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(paper)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).background(AppTheme.surface)
+    }
+
+    private func discussSource(_ source: String?) -> (() -> Void)? {
+        guard let source, let range = state.textSelection,
+              TranslationModel.selectedText(range, in: state.book.pages[state.book.page]) == source else { return nil }
+        return { state.chatSelection(range, preservingResult: true) }
     }
 
     var dictionaryInspector: some View {
         VStack(alignment: .leading, spacing: 0) {
             Label("词义与出处", systemImage: "text.magnifyingglass").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
-                .padding(.horizontal, 21).frame(height: 52)
+                .padding(.horizontal, 21).frame(height: 56)
             Divider().overlay(rule)
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if let lookup = state.lookup {
-                        definition(lookup.definition, showMissingMeaning: !state.querying && state.lookupFailure == nil)
+                        occurrence(lookup.occurrence)
+                        HStack {
+                            if lookup.definition.source == nil {
+                                Button("AI 语境释义", action: state.retryLookup)
+                                    .buttonStyle(AppActionButtonStyle(prominent: true))
+                                    .disabled(state.querying)
+                            } else {
+                                Button("重新释义", action: state.regenerateLookup)
+                                    .buttonStyle(AppActionButtonStyle())
+                                    .disabled(state.querying)
+                            }
+                            Button("追问") { state.chatSelection(lookup.range) }
+                                .buttonStyle(AppActionButtonStyle())
+                        }
                         if state.querying {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small)
                                 Text("正在查询语境释义…").font(.system(size: max(13, definitionFontSize - 3))).foregroundStyle(muted)
+                                Spacer()
+                                Button("停止", action: state.stopLookup).buttonStyle(AppActionButtonStyle())
                             }
                         }
                         if let failure = state.lookupFailure {
@@ -418,24 +530,21 @@ struct ReaderView: View {
                             }.font(.system(size: 14)).tint(accent)
                         }
                         if state.reusedDefinition {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("已复用已有词条释义，词义及活用说明可能与当前原句不同。")
-                                    .font(.system(size: max(12, definitionFontSize - 4))).foregroundStyle(muted)
-                                Button("按当前原句重新释义", action: state.regenerateLookup)
-                                    .font(.system(size: 14)).tint(accent)
-                            }
+                            Text("已读取这条原句的语境释义")
+                                .font(.system(size: max(12, definitionFontSize - 4))).foregroundStyle(muted)
                         }
                         if let warning = state.cacheWarning {
                             Text(warning).font(.system(size: max(12, definitionFontSize - 4))).foregroundStyle(muted)
                         }
-                        occurrence(lookup.occurrence)
+                        definition(lookup.definition, showMissingMeaning: !state.querying && state.lookupFailure == nil,
+                                   selectedWord: lookup.occurrence.context.word)
                         let added = state.contains(lookup)
                         Button { state.save(lookup) } label: {
                             Label(added ? "已保存这条例句" : state.hasSavedExample(lookup) ? "更新这条例句" : "加入生词本", systemImage: added ? "checkmark" : "bookmark")
                                 .font(.system(size: 14, weight: .semibold)).padding(11).frame(maxWidth: .infinity)
                                 .foregroundStyle(added ? accent : .white)
                                 .background(added ? tintWash : accent, in: RoundedRectangle(cornerRadius: 8))
-                        }.buttonStyle(.plain).disabled(added || state.querying || state.lookupFailure != nil)
+                        }.buttonStyle(.plain).disabled(added || state.querying)
                         if added {
                             Button("在生词本中查看") {
                                 state.selectedWord = lookup.key
@@ -443,14 +552,14 @@ struct ReaderView: View {
                             }.buttonStyle(.plain).font(.system(size: 13, weight: .semibold)).foregroundStyle(accent)
                         }
                     } else {
-                        Text("选词开始阅读").font(.system(size: 26, weight: .medium))
-                        Text("选中文字后点击「词典释义」查看离线释义，或选择「大模型释义」查询语境词义。")
+                        Text("在原句里学日语").font(.system(size: 25, weight: .semibold))
+                        Text("选中单词，查看原句和释义。遇到难句时，选中完整句子即可翻译、分析或追问。")
                             .font(.system(size: 18)).foregroundStyle(muted).lineSpacing(6)
-                        if singleClickLookupEnabled, state.book.kind == "示例", state.book.page == 0,
+                        if state.book.kind == "示例", state.book.page == 0,
                            let range = state.book.pages[0].range(of: "喫茶店") {
                             Button { state.choose(NSRange(range, in: state.book.pages[0]).location) } label: {
                                 Label("试查「喫茶店」", systemImage: "arrow.up.left").font(.system(size: 14, weight: .semibold))
-                            }.buttonStyle(.plain).foregroundStyle(accent)
+                            }.buttonStyle(AppActionButtonStyle(prominent: true))
                         }
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(21)
@@ -534,11 +643,17 @@ struct ReaderView: View {
 
     private func dictionaryLanguage(_ label: String, text: String, chinese: Bool) -> some View {
         let color = chinese ? chineseDefinitionColor : ink
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(chinese ? color : muted)
+        let badgeColor = chinese ? chineseDefinitionColor : accent
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label).font(.system(size: 12, weight: .bold))
+                .foregroundStyle(badgeColor)
+                .frame(width: 24)
+                .padding(.vertical, 3)
+                .background(badgeColor.opacity(0.13), in: RoundedRectangle(cornerRadius: 5))
+                .fixedSize()
                 .accessibilityLabel(chinese ? "中文释义" : "日文释义")
             Text(text).font(.system(size: definitionFontSize, weight: chinese ? .medium : .regular))
-                .foregroundStyle(color).lineSpacing(5)
+                .foregroundStyle(color).lineSpacing(5).fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -596,13 +711,14 @@ struct ReaderView: View {
         }.frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
     }
 
-    func definition(_ value: Definition, showMissingMeaning: Bool = true) -> some View {
+    func definition(_ value: Definition, showMissingMeaning: Bool = true, selectedWord: String? = nil) -> some View {
         let value = state.dictionary.addingDictionaryEnglish(to: value)
-        let headword = Text(value.head)
+        let displayedHead = value.source == nil ? value.head : (selectedWord ?? value.head)
+        let headword = Text(displayedHead)
             .font(.system(size: definitionFontSize + 12, weight: .medium)).textSelection(.enabled)
         let moji = Button {
             Task { @MainActor in
-                do { try await MOJiSearch().open(word: value.head) }
+                do { try await MOJiSearch().open(word: displayedHead) }
                 catch { state.failure = error.localizedDescription }
             }
         } label: {
@@ -622,32 +738,24 @@ struct ReaderView: View {
                     moji
                 }
             }
-            if !value.reading.isEmpty { Text(value.reading).font(.system(size: definitionFontSize + 2)).foregroundStyle(accent).textSelection(.enabled) }
-            partOfSpeech(value)
+            if value.source == nil && !value.reading.isEmpty && value.reading != displayedHead {
+                Text(value.reading).font(.system(size: definitionFontSize + 2)).foregroundStyle(accent).textSelection(.enabled)
+            }
+            modelDefinitionContent(value, reading: value.reading == displayedHead ? nil : value.reading,
+                                   surface: displayedHead)
+            localDefinitionContent(value)
             if let name = value.dictionaryName {
-                Text(name).font(.system(size: 14, weight: .semibold)).foregroundStyle(accent).padding(.top, 4)
+                Text("本地词典 · \(name)").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent).padding(.top, 4)
                 if let text = value.dictionaryText {
                     importedDictionaryContent(text)
                 }
             }
-            if let en = value.english {
-                Text("英文释义").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent).padding(.top, 4)
-                Text(en).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
-            }
-            if let zh = value.chineseMeaning {
-                Text(value.source == nil ? "中文释义" : "中文语境释义")
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(accent).padding(.top, 4)
-                if let source = value.source {
-                    Text("AI · \(source)").font(.system(size: 14, weight: .medium)).foregroundStyle(muted)
-                }
-                Text(zh).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
-            }
-            if let etymology = value.etymology {
+            if value.source == nil, let etymology = value.etymology {
                 Text("外来语词源").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent).padding(.top, 4)
                 Text(etymology).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
             }
             if !value.hasMeaning && showMissingMeaning {
-                Text("词典中暂未找到释义，可通过选词后的「大模型释义」查询。仍可保存原句。")
+                Text("词典中暂未找到释义。")
                     .font(.system(size: definitionFontSize)).foregroundStyle(muted)
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
@@ -670,37 +778,47 @@ struct ReaderView: View {
         noteDraft = ReadingNote(bookID: book.id, page: book.page, excerpt: excerpt, body: "")
     }
 
-    private var readingNotes: some View {
-        let book = state.library.books.first { $0.id == notesBookID } ?? state.book
+    private func readingRecords(isHistory: Bool) -> some View {
+        let bookID = isHistory ? historyBookID : notesBookID
+        let book = state.library.books.first { $0.id == bookID } ?? state.activeBook ?? state.library.books[0]
         let query = notesQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let notes = state.library.notes.filter { note in
+        let notes = isHistory ? [] : state.library.notes.filter { note in
             if query.isEmpty { return note.bookID == book.id }
             return note.body.localizedCaseInsensitiveContains(query)
                 || note.excerpt?.localizedCaseInsensitiveContains(query) == true
         }
         return VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("笔记本").font(.system(size: 23, weight: .semibold))
-                Spacer()
-                Picker("记录类型", selection: $notebookSection) {
-                    ForEach(NotebookSection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 260)
-                if notebookSection == .notes {
-                    TextField("搜索全部笔记", text: $notesQuery).frame(maxWidth: 240)
-                    Button { startNote(book: book) } label: {
-                        Label("新建笔记", systemImage: "plus")
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(isHistory ? "历史记录" : "笔记本").font(.system(size: 23, weight: .semibold))
+                    Spacer()
+                    if !isHistory {
+                        TextField("搜索全部笔记", text: $notesQuery).frame(maxWidth: 240)
+                        Button { startNote(book: book) } label: {
+                            Label("新建笔记", systemImage: "plus")
+                        }.buttonStyle(AppActionButtonStyle(prominent: true))
                     }
                 }
-            }.padding(24)
+                if isHistory {
+                    AppOptionButtons(title: "记录类型", options: HistorySection.allCases,
+                                     selection: $historySection) { $0.rawValue }
+                        .frame(maxWidth: 300)
+                }
+            }.padding(20).background(AppTheme.surface)
             Divider()
             HStack(alignment: .top, spacing: 0) {
                 ScrollView {
                     VStack(spacing: 4) {
                         ForEach(state.library.books) { item in
                             nav(item.title, "book", selected: item.id == book.id,
-                                count: historyCount(bookID: item.id)) {
-                                notesBookID = item.id
-                                notesQuery = ""
+                                count: isHistory ? historyCount(bookID: item.id)
+                                    : state.library.notes.filter { $0.bookID == item.id }.count) {
+                                if isHistory {
+                                    historyBookID = item.id
+                                } else {
+                                    notesBookID = item.id
+                                    notesQuery = ""
+                                }
                             }
                         }
                     }.padding(12)
@@ -708,7 +826,7 @@ struct ReaderView: View {
                 Divider()
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18) {
-                        if notebookSection != .notes {
+                        if isHistory {
                             Text(book.title).font(.title2)
                             bookHistory(book)
                         } else {
@@ -752,18 +870,20 @@ struct ReaderView: View {
     }
 
     private func historyCount(bookID: UUID) -> Int {
-        switch notebookSection {
-        case .notes: state.library.notes.filter { $0.bookID == bookID }.count
+        switch historySection {
         case .analyses: sentenceAnalysis.history.filter { $0.bookID == bookID }.count
         case .chats: modelChat.conversations.filter { $0.context.bookID == bookID && !$0.messages.isEmpty }.count
         }
     }
 
     @ViewBuilder private func bookHistory(_ book: Book) -> some View {
-        if notebookSection == .analyses {
+        if historySection == .analyses {
             let entries = sentenceAnalysis.history.filter { $0.bookID == book.id }
             if let warning = sentenceAnalysis.historyWarning { Text(warning).foregroundStyle(muted) }
-            if entries.isEmpty { Text("这本书还没有长句分析记录。").foregroundStyle(muted) }
+            if entries.isEmpty {
+                historyEmptyState("这本书还没有长句分析记录。", icon: "text.alignleft",
+                                  guidance: "在阅读中选中一个完整句子，点「长句分析」。分析完成后，结果会自动出现在这里。", book: book)
+            }
             ForEach(entries) { entry in
                 historyRow(book: book, page: entry.page, text: entry.text, subtitle: entry.serviceName,
                            actionTitle: "查看分析", open: {
@@ -775,7 +895,10 @@ struct ReaderView: View {
         } else {
             let entries = modelChat.conversations.reversed().filter { $0.context.bookID == book.id && !$0.messages.isEmpty }
             if let warning = modelChat.storageWarning { Text(warning).foregroundStyle(muted) }
-            if entries.isEmpty { Text("这本书还没有对话记录。").foregroundStyle(muted) }
+            if entries.isEmpty {
+                historyEmptyState("这本书还没有对话记录。", icon: "bubble.left.and.bubble.right",
+                                  guidance: "在阅读中选中文字，点「大模型对话」并发送问题。对话会自动出现在这里。", book: book)
+            }
             ForEach(entries) { entry in
                 historyRow(book: book, page: entry.context.page, text: entry.context.selectedText,
                            subtitle: entry.messages.first?.content ?? "", actionTitle: "继续对话", open: {
@@ -785,6 +908,18 @@ struct ReaderView: View {
                 }, delete: { modelChat.delete(entry.id) })
             }
         }
+    }
+
+    private func historyEmptyState(_ title: String, icon: String, guidance: String, book: Book) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: icon)
+        } description: {
+            Text(guidance)
+        } actions: {
+            Button("返回阅读") { state.openBook(book.id) }
+                .buttonStyle(AppActionButtonStyle(prominent: true))
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func historyRow(book: Book, page: Int, text: String, subtitle: String, actionTitle: String,
@@ -812,19 +947,56 @@ struct ReaderView: View {
     }
 
     @ViewBuilder
-    func notebookModelMeaning(_ value: Definition) -> some View {
-        if value.source != nil, let chinese = value.chineseMeaning {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("大模型释义").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
-                if let source = value.source, !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("AI · \(source)").font(.system(size: 14, weight: .medium)).foregroundStyle(muted)
+    func modelDefinitionContent(_ value: Definition, reading: String? = nil, surface: String? = nil) -> some View {
+        if let source = value.source, let chinese = value.chineseMeaning {
+            let legacy = chinese.split(separator: "\n", maxSplits: 1).map(String.init)
+            let note = value.modelNote ?? (legacy.count == 2 ? legacy[1] : "")
+            let meaning = value.modelNote == nil ? (legacy.first ?? chinese)
+                : (!note.isEmpty && chinese.hasSuffix("\n" + note) ? String(chinese.dropLast(note.count + 1)) : chinese)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("大模型释义").font(.system(size: 15, weight: .bold))
+                Text("中文语境释义").font(.system(size: 13, weight: .semibold)).foregroundStyle(accent)
+                Text(meaning).font(.system(size: definitionFontSize, weight: .semibold))
+                    .lineSpacing(6).textSelection(.enabled)
+                if let surface, surface != value.head {
+                    let kana = value.reading.isEmpty || value.reading == value.head ? "" : "（\(value.reading)）"
+                    definitionDetail("基本形", text: value.head + kana)
+                } else if let reading, !reading.isEmpty {
+                    definitionDetail("读音", text: reading)
                 }
-                Text(chinese).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
-                if let etymology = value.etymology, !etymology.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("外来语词源").font(.system(size: 14, weight: .semibold)).foregroundStyle(accent)
-                    Text(etymology).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
+                if !note.isEmpty { definitionDetail("补充说明", text: note) }
+                if let etymology = value.etymology, !etymology.isEmpty {
+                    definitionDetail("词源", text: etymology)
                 }
-            }.frame(maxWidth: .infinity, alignment: .leading)
+                if !source.isEmpty {
+                    Text("AI · \(source)").font(.system(size: 12)).foregroundStyle(muted)
+                }
+            }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(tintWash.opacity(0.55), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    @ViewBuilder
+    private func localDefinitionContent(_ value: Definition) -> some View {
+        let tags = state.dictionary.partsOfSpeech(for: value)
+        let chinese = value.source == nil ? value.chineseMeaning : nil
+        if !tags.isEmpty || value.english != nil || chinese != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("本地词典").font(.system(size: 15, weight: .bold))
+                if let english = value.english { definitionDetail("英文释义 · JMdict", text: english, emphasized: true) }
+                if !tags.isEmpty { definitionDetail("词性 · JMdict", text: tags.map(\.label).joined(separator: " · ")) }
+                if let chinese { definitionDetail("内置中文释义", text: chinese, emphasized: true) }
+            }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .background(.white, in: RoundedRectangle(cornerRadius: 8))
+                .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(rule) }
+        }
+    }
+
+    private func definitionDetail(_ title: String, text: String, emphasized: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 13, weight: .semibold)).foregroundStyle(accent)
+            Text(text).font(.system(size: emphasized ? definitionFontSize : max(14, definitionFontSize - 2),
+                                    weight: emphasized ? .semibold : .regular)).lineSpacing(5).textSelection(.enabled)
         }
     }
 
@@ -833,11 +1005,13 @@ struct ReaderView: View {
             Text("原句").font(.system(size: 12, weight: .semibold)).foregroundStyle(accent)
             sentence(example.context).font(.system(size: definitionFontSize)).lineSpacing(6).textSelection(.enabled)
             Divider().overlay(rule)
-            Label(example.filename, systemImage: "doc.text").font(.system(size: 13, weight: .medium))
+            Label(state.library.books.first { $0.id == example.bookID }?.title ?? example.filename,
+                  systemImage: "doc.text").font(.system(size: 13, weight: .medium))
                 .foregroundStyle(muted).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
             Text(example.location).font(.system(size: 12, design: .monospaced)).foregroundStyle(muted)
         }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
-            .background(AppTheme.surface, in: RoundedRectangle(cornerRadius: 6))
+            .background(paper, in: RoundedRectangle(cornerRadius: 8))
+            .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(rule) }
     }
 
     func sentence(_ context: SentenceContext) -> Text {
@@ -870,8 +1044,8 @@ struct ReaderView: View {
                 Spacer()
                 Button { showingExport = true } label: {
                     Label("导出生词", systemImage: "square.and.arrow.up")
-                }.tint(accent).disabled(state.library.words.isEmpty)
-            }.padding(.horizontal, 30).padding(.vertical, 23)
+                }.buttonStyle(AppActionButtonStyle(prominent: true)).disabled(state.library.words.isEmpty)
+            }.padding(.horizontal, 24).padding(.vertical, 18).background(AppTheme.surface)
             Divider().overlay(rule)
             if state.library.words.isEmpty {
                 VStack(spacing: 13) {
@@ -923,14 +1097,14 @@ struct ReaderView: View {
                         if let word = state.selectedSavedWord, filtered.contains(where: { $0.id == word.id }) {
                             VStack(alignment: .leading, spacing: 17) {
                                 notebookDefinition(word)
-                                notebookModelMeaning(word.definition)
+                                modelDefinitionContent(word.definition)
                                 ForEach(word.examples) { example in
                                     VStack(alignment: .leading, spacing: 8) {
                                         if let savedDefinition = example.definition, savedDefinition != word.definition {
                                             if savedDefinition.source == nil {
                                                 definition(savedDefinition, showMissingMeaning: false)
                                             } else {
-                                                notebookModelMeaning(savedDefinition)
+                                                modelDefinitionContent(savedDefinition)
                                             }
                                         }
                                         occurrence(example)
@@ -973,6 +1147,51 @@ struct ReaderView: View {
                 }
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct BookInfoEditor: View {
+    @Environment(\.dismiss) private var dismiss
+    @ViewState private var metadata: BookMetadata
+    let book: Book
+    let count: Int
+    let save: (BookMetadata) -> Bool
+
+    init(book: Book, save: @escaping (BookMetadata) -> Bool) {
+        self.book = book
+        self.save = save
+        count = book.characterCount
+        _metadata = ViewState(initialValue: book.metadata ?? BookMetadata())
+    }
+
+    private func field(_ key: WritableKeyPath<BookMetadata, String?>) -> Binding<String> {
+        Binding(get: { metadata[keyPath: key] ?? "" }, set: { metadata[keyPath: key] = $0 })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("文档信息").font(.title2.bold())
+            Form {
+                TextField("书名", text: field(\.title), prompt: Text(book.filenameTitle))
+                TextField("作者", text: field(\.author), prompt: Text("未提供"))
+                TextField("出版社", text: field(\.publisher), prompt: Text("未提供"))
+                TextField("出版日期", text: field(\.published), prompt: Text("例如 2024-05"))
+                LabeledContent("正文总字数", value: count.formatted())
+                LabeledContent("文档格式", value: book.kind)
+                LabeledContent("\(book.unit)数", value: book.pages.count.formatted())
+                LabeledContent("源文件名") { Text(book.name).textSelection(.enabled) }
+            }
+            Text("字数包含文字、字母和数字。").font(.caption).foregroundStyle(muted)
+            HStack {
+                Spacer()
+                Button("取消") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("保存") {
+                    let cleaned = BookMetadata(title: metadata.title, author: metadata.author,
+                                               publisher: metadata.publisher, published: metadata.published)
+                    if save(cleaned) { dismiss() }
+                }.buttonStyle(AppActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+            }
+        }.padding(24).frame(width: 460).background(paper).tint(accent)
     }
 }
 
@@ -1091,7 +1310,9 @@ struct NotebookExportView: View {
 }
 
 struct DefinitionSettingsView: View {
-    private enum Tab { case reading, model, translation }
+    private enum Tab: String, CaseIterable {
+        case reading = "阅读显示", model = "大模型", translation = "本地翻译"
+    }
     @ObservedObject var state: ReaderState
     @ObservedObject var preferences: DefinitionPreferences
     @ObservedObject var translation: LocalTranslation
@@ -1112,11 +1333,7 @@ struct DefinitionSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("设置").font(.system(size: 26, weight: .medium))
-            Picker("设置类别", selection: $tab) {
-                Text("阅读显示").tag(Tab.reading)
-                Text("大模型").tag(Tab.model)
-                Text("本地翻译").tag(Tab.translation)
-            }.pickerStyle(.segmented)
+            AppOptionButtons(title: "设置类别", options: Tab.allCases, selection: $tab) { $0.rawValue }
             Form {
                 if tab == .reading {
                 Section("阅读显示") {
@@ -1242,6 +1459,11 @@ struct DefinitionSettingsView: View {
             .commands {
                 CommandGroup(replacing: .newItem) {
                     Button("导入文件…", action: state.importBook).keyboardShortcut("o")
+                }
+                CommandMenu("阅读") {
+                    Button("大模型释义", action: state.defineSelectedWordWithModel)
+                        .keyboardShortcut("l", modifiers: [.command, .shift])
+                        .disabled(!state.canDefineModelSelection)
                 }
             }
         Settings { DefinitionSettingsView(state: state, preferences: state.preferences, translation: state.translation) }

@@ -91,7 +91,12 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         try require(!state.querying && requests == 0, "Selected-text dictionary action never requests the model")
         state.save(state.lookup!)
 
-        state.defineModelSelection(range)
+        state.destination = .history
+        try require(!state.canDefineModelSelection, "Model definition command is disabled outside reading")
+        state.destination = .reading
+        state.textSelection = range
+        try require(state.canDefineModelSelection, "Model definition command is enabled for a selected word")
+        state.defineSelectedWordWithModel()
         try await waitForLookup(state)
         try require(requests == 1 && state.lookup?.definition.source == "test",
                     "Explicit model action requests the model even if an offline word was already saved")

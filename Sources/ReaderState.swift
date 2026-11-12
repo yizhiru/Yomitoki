@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
     @Published private(set) var lookupFailure: String?
     @Published private(set) var reusedDefinition = false
     @Published private(set) var cacheWarning: String?
-    enum Destination { case reading, vocabulary, notes }
+    enum Destination { case reading, vocabulary, notes, history }
     @Published var destination = Destination.reading {
         didSet {
             guard destination != .reading else { return }
@@ -127,13 +127,18 @@ import UniformTypeIdentifiers
         refreshTokens()
     }
 
-    var book: Book { library.books.first { $0.id == library.current } ?? library.books[0] }
+    var shelfBooks: [Book] { library.books.filter { $0.removedFromShelf != true } }
+    var activeBook: Book? {
+        guard let current = library.current else { return nil }
+        return library.books.first { $0.id == current } ?? shelfBooks.first
+    }
+    var book: Book { activeBook ?? .sample }
     var selectedSavedWord: SavedWord? { library.words.first { $0.id == selectedWord } }
     func refreshTokens() {
         textSelection = nil
         noteSelection = nil
         readingOffset = book.clampedReadingOffset(book.readingOffset ?? 0)
-        tokens = Lexicon.tokens(book.pages[book.page])
+        tokens = activeBook.map { Lexicon.tokens($0.pages[$0.page]) } ?? []
         revision = UUID()
     }
     @discardableResult private func persist(_ candidate: LibraryData) -> Bool {
@@ -152,7 +157,7 @@ import UniformTypeIdentifiers
         }
     }
     func recordReadingProgress(_ offset: Int, revision: UUID) {
-        guard revision == self.revision, destination == .reading else { return }
+        guard revision == self.revision, destination == .reading, activeBook != nil else { return }
         pendingReadingOffset = book.clampedReadingOffset(offset)
         guard readingProgressTask == nil else { return }
         readingProgressTask = Task { [weak self] in
@@ -195,6 +200,11 @@ import UniformTypeIdentifiers
             readingOffset = book.clampedReadingOffset(book.readingOffset ?? 0)
             if page != nil { revision = UUID() }
         }
+        clearReadingActions()
+        inNotebook = false
+    }
+
+    private func clearReadingActions() {
         cancelLookup()
         modelChat.dismiss()
         translation.clear()
@@ -202,8 +212,30 @@ import UniformTypeIdentifiers
         textSelection = nil
         noteSelection = nil
         lookup = nil
-        inNotebook = false
     }
+
+    func removeFromShelf(_ id: UUID) {
+        guard let index = library.books.firstIndex(where: { $0.id == id && $0.removedFromShelf != true }) else { return }
+        let removingCurrent = activeBook?.id == id
+        if removingCurrent { flushReadingProgress() }
+        var candidate = library
+        candidate.books[index].removedFromShelf = true
+        if removingCurrent {
+            candidate.current = candidate.books.first { $0.removedFromShelf != true }?.id
+        }
+        if persist(candidate), removingCurrent {
+            cancelImport()
+            clearReadingActions()
+            refreshTokens()
+        }
+    }
+    func saveBookMetadata(_ metadata: BookMetadata, for id: UUID) -> Bool {
+        guard let index = library.books.firstIndex(where: { $0.id == id }) else { return false }
+        var candidate = library
+        candidate.books[index].metadata = metadata
+        return persist(candidate)
+    }
+
     func saveNote(_ note: ReadingNote) -> Bool {
         guard note.hasBody || note.hasExcerpt,
               let book = library.books.first(where: { $0.id == note.bookID }),
@@ -239,10 +271,18 @@ import UniformTypeIdentifiers
         guard let selection = textSelection, selectionLevel(selection) == .word else { return }
         showDictionary(dictionary.lookup(book: book, page: book.page, selection: selection))
     }
+    var canDefineModelSelection: Bool { destination == .reading && selectedContentLevel == .word }
+
+    func defineSelectedWordWithModel() {
+        guard canDefineModelSelection, let textSelection else { return }
+        defineModelSelection(textSelection)
+    }
+
     func defineModelSelection(_ range: NSRange) {
         guard selectionLevel(range) == .word else { return }
         textSelection = range
-        requestModelLookup(dictionary.lookup(book: book, page: book.page, selection: range))
+        showDictionary(dictionary.lookup(book: book, page: book.page, selection: range))
+        requestModelLookup(lookup)
     }
     func translateSelection(_ range: NSRange) {
         guard canTranslate(range) else { return }
@@ -270,7 +310,7 @@ import UniformTypeIdentifiers
         guard book.id == bookID, book.page == page, destination == .reading else { return false }
         return true
     }
-    func chatSelection(_ range: NSRange) {
+    func chatSelection(_ range: NSRange, preservingResult: Bool = false) {
         guard selectionLevel(range) != nil, let selected = Range(range, in: book.pages[book.page]) else { return }
         let text = String(book.pages[book.page][selected])
         guard text.count <= ModelChatAPI.maximumSelection else {
@@ -283,8 +323,10 @@ import UniformTypeIdentifiers
                 offset: range.location, selectedText: text, before: String(context.before.suffix(1600)), after: String(context.after.prefix(1600))))
             textSelection = range
             cancelLookup()
-            translation.clear()
-            sentenceAnalysis.clear()
+            if !preservingResult {
+                translation.clear()
+                sentenceAnalysis.clear()
+            }
         } catch { failure = error.localizedDescription }
     }
     func openChat() {
@@ -333,6 +375,9 @@ import UniformTypeIdentifiers
     func regenerateLookup() {
         requestModelLookup(lookup, refresh: true)
     }
+    func stopLookup() {
+        cancelLookup()
+    }
     private func requestModelLookup(_ selected: Lookup?, refresh: Bool = false) {
         modelChat.dismiss()
         sentenceAnalysis.clear()
@@ -351,12 +396,14 @@ import UniformTypeIdentifiers
         lookupTask = Task {
             do {
                 let resolution = try await definitionResolver.resolve(selected, settings: settings,
-                    savedWords: library.words, refresh: refresh) {
+                    savedWords: library.words, refresh: refresh, requireExactContext: true) {
                     try await fetchModel(selected.occurrence.context, settings)
                 }
                 guard !Task.isCancelled, request == lookupRequest else { return }
                 var occurrence = selected.occurrence
-                let definition = dictionary.addingDictionaryEnglish(to: resolution.definition)
+                var definition = dictionary.addingDictionaryEnglish(to: resolution.definition)
+                definition.dictionaryName = selected.definition.dictionaryName
+                definition.dictionaryText = selected.definition.dictionaryText
                 occurrence.definition = definition
                 lookup = Lookup(definition: definition, occurrence: occurrence)
                 reusedDefinition = resolution.reused
@@ -394,13 +441,17 @@ import UniformTypeIdentifiers
     }
     func contains(_ lookup: Lookup) -> Bool {
         guard let word = library.words.first(where: { $0.id == lookup.key }) else { return false }
-        return word.examples.contains { $0.samePlace(as: lookup.occurrence) && ($0.definition ?? word.definition) == lookup.definition }
+        return word.examples.contains {
+            let saved = $0.definition ?? word.definition
+            return $0.samePlace(as: lookup.occurrence)
+                && (saved == lookup.definition || (saved.source != nil && lookup.definition.source == nil))
+        }
     }
     func hasSavedExample(_ lookup: Lookup) -> Bool {
         library.words.first(where: { $0.id == lookup.key })?.examples.contains(where: { $0.samePlace(as: lookup.occurrence) }) ?? false
     }
     func save(_ lookup: Lookup) {
-        guard !querying, lookupFailure == nil, !contains(lookup) else { return }
+        guard !querying, !contains(lookup) else { return }
         var candidate = library
         if let index = candidate.words.firstIndex(where: { $0.id == lookup.key }) {
             if let example = candidate.words[index].examples.firstIndex(where: { $0.samePlace(as: lookup.occurrence) }) {
@@ -531,9 +582,15 @@ import UniformTypeIdentifiers
                 try Task.checkCancellation()
                 flushReadingProgress()
                 var candidate = library
-                let existing = candidate.books.first { $0.name == new.name && $0.pages == new.pages }
-                if existing == nil { candidate.books.append(new) }
-                candidate.current = existing?.id ?? new.id
+                if let index = candidate.books.firstIndex(where: { $0.name == new.name && $0.pages == new.pages }) {
+                    candidate.books[index].removedFromShelf = nil
+                    let metadata = candidate.books[index].metadata ?? BookMetadata()
+                    candidate.books[index].metadata = metadata.fillingMissing(from: new.metadata)
+                    candidate.current = candidate.books[index].id
+                } else {
+                    candidate.books.append(new)
+                    candidate.current = new.id
+                }
                 if persist(candidate) {
                     modelChat.dismiss()
                     sentenceAnalysis.clear()

@@ -3,17 +3,21 @@ import SwiftUI
 struct SentenceAnalysisView: View {
     @ObservedObject var analysis: SentenceAnalysisState
     let fontSize: Double
+    var discuss: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Label("长句分析", systemImage: "text.alignleft").font(.system(size: 14, weight: .semibold))
                 Spacer()
+                if let discuss { Button("追问", action: discuss).buttonStyle(AppActionButtonStyle()) }
                 Button("返回词典", action: analysis.clear).font(.system(size: 13))
             }.padding(.horizontal, 21).frame(height: 52)
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    section("日语原文", text: analysis.source ?? "")
+                    Divider()
                     Text("AI · \(analysis.serviceName)").font(.system(size: 13)).foregroundStyle(.secondary)
                     if analysis.analyzing {
                         HStack { ProgressView().controlSize(.small); Text("正在分析句子结构…").font(.system(size: 15)) }
@@ -44,8 +48,6 @@ struct SentenceAnalysisView: View {
                     }
                     if let warning = analysis.cacheWarning { Text(warning).font(AppTheme.captionFont).foregroundStyle(.secondary) }
                     if let warning = analysis.historyWarning { Text(warning).font(AppTheme.captionFont).foregroundStyle(.secondary) }
-                    Divider()
-                    section("日语原文", text: analysis.source ?? "")
                     Text("使用「设置 → 大模型」中的 API 服务，按服务商规则计费。AI 分析可能存在错误。")
                         .font(AppTheme.captionFont).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(21)

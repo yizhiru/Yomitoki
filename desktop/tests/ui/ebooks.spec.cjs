@@ -23,6 +23,10 @@ test('built-in EPUB/MOBI import, limits, cancellation and persisted reading work
       else {
         expect(state.books.length, value.id).toBe(before + 1);
         const book = state.books.find(book => book.id === state.current); expect(book.kind).toBe(value.kind);
+        if (book.name === '日本語の本 空白.epub') {
+          expect(book.metadata.title).toBe('epub3-japanese-ruby');
+          await expect(page.locator('#books .active')).toHaveText('epub3-japanese-ruby');
+        }
         const text = compact(book.pages.join('\n\n')); let cursor = -1;
         for (const part of expectedBlocks(value)) { const at = text.indexOf(compact(part), cursor + 1); expect(at, value.id + ': missing/out-of-order expected text').toBeGreaterThan(cursor); cursor = at; }
         for (const marker of ['HIDDEN_ATTR_PROBE', 'HIDDEN_INLINE_PROBE', 'HIDDEN_CSS_PROBE', 'SCRIPT_PROBE', 'STYLE_PROBE']) expect(text).not.toContain(marker);

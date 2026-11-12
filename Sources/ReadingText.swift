@@ -6,8 +6,24 @@ final class ReadingTextView: NSTextView {
     var onSelectionBegan: () -> Void = {}
     var onSelectionEnded: () -> Void = {}
     var onSingleClick: (NSPoint) -> Void = { _ in }
+    var onSelectionHover: (NSPoint) -> Void = { _ in }
     var onPageTurn: ((Bool) -> Void)?
     private(set) var trackingSelection = false
+    private var selectionTrackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let selectionTrackingArea { removeTrackingArea(selectionTrackingArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        selectionTrackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        onSelectionHover(convert(event.locationInWindow, from: nil))
+    }
 
     override func mouseDown(with event: NSEvent) {
         onSelectionBegan()
@@ -142,14 +158,18 @@ struct ReadingText: NSViewRepresentable {
         }
 
         func singleClick(at point: NSPoint, in view: ReadingTextView) {
-            guard singleClickLookupEnabled else { return }
-            guard let layout = view.layoutManager, let container = view.textContainer else { return }
+            guard singleClickLookupEnabled, let index = character(at: point, in: view) else { return }
+            _ = onTap(index)
+        }
+
+        private func character(at point: NSPoint, in view: ReadingTextView) -> Int? {
+            guard view.visibleRect.contains(point), let layout = view.layoutManager,
+                  let container = view.textContainer else { return nil }
             let local = NSPoint(x: point.x - view.textContainerOrigin.x, y: point.y - view.textContainerOrigin.y)
             let index = layout.characterIndex(for: local, in: container, fractionOfDistanceBetweenInsertionPoints: nil)
-            guard index < view.string.utf16.count else { return }
+            guard index < view.string.utf16.count else { return nil }
             let glyphs = layout.glyphRange(forCharacterRange: NSRange(location: index, length: 1), actualCharacterRange: nil)
-            guard layout.boundingRect(forGlyphRange: glyphs, in: container).contains(local) else { return }
-            _ = onTap(index)
+            return layout.boundingRect(forGlyphRange: glyphs, in: container).contains(local) ? index : nil
         }
 
         func observeSelection(in view: ReadingTextView, scroll: NSScrollView) {
@@ -160,6 +180,9 @@ struct ReadingText: NSViewRepresentable {
             }
             view.onSelectionEnded = { [weak self, weak view] in
                 if let view { self?.selectionChanged(in: view, showActions: true) }
+            }
+            view.onSelectionHover = { [weak self, weak view] point in
+                if let view { self?.restoreActions(at: point, in: view) }
             }
             mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .keyDown]) { [weak self] event in
                 guard let self else { return event }
@@ -182,6 +205,13 @@ struct ReadingText: NSViewRepresentable {
                         self?.dismissActions()
                     }
                 })
+        }
+
+        func restoreActions(at point: NSPoint, in view: ReadingTextView) {
+            let range = view.selectedRange()
+            guard panel == nil, pendingActions == nil, !view.trackingSelection, range.length > 0,
+                  let index = character(at: point, in: view), NSLocationInRange(index, range) else { return }
+            scheduleActions(range, in: view)
         }
 
         private func recordScroll(in scroll: NSScrollView) {
@@ -220,7 +250,9 @@ struct ReadingText: NSViewRepresentable {
 
         private func scheduleActions(_ range: NSRange, in view: ReadingTextView) {
             let work = DispatchWorkItem { [weak self, weak view] in
-                guard let self, let view, view.selectedRange() == range,
+                guard let self else { return }
+                self.pendingActions = nil
+                guard let view, view.selectedRange() == range,
                       let window = view.window, window.isVisible,
                       let layout = view.layoutManager, let container = view.textContainer,
                       Range(range, in: view.string) != nil else { return }
@@ -254,7 +286,7 @@ struct ReadingText: NSViewRepresentable {
                 let stack = NSStackView(views: buttons)
                 stack.orientation = .horizontal
                 stack.alignment = .centerY
-                stack.spacing = 10
+                stack.spacing = 4
                 stack.translatesAutoresizingMaskIntoConstraints = false
                 background.addSubview(stack)
                 NSLayoutConstraint.activate([
@@ -279,9 +311,16 @@ struct ReadingText: NSViewRepresentable {
             let button = NSButton(title: title, target: self, action: action)
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
             button.imagePosition = .imageLeading
-            button.font = .systemFont(ofSize: 14, weight: .medium)
+            button.font = .systemFont(ofSize: 14, weight: .semibold)
             button.isBordered = false
             button.contentTintColor = AppTheme.accentColor
+            button.wantsLayer = true
+            button.layer?.backgroundColor = AppTheme.selectionColor.cgColor
+            button.layer?.cornerRadius = 8
+            NSLayoutConstraint.activate([
+                button.widthAnchor.constraint(equalToConstant: 112),
+                button.heightAnchor.constraint(equalToConstant: 34)
+            ])
             button.setAccessibilityLabel(title)
             return button
         }

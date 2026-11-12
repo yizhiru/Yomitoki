@@ -11,5 +11,6 @@ contextBridge.exposeInMainWorld('yomitoki', {
     ipcRenderer.on('model-progress', handler);
     return () => ipcRenderer.removeListener('model-progress', handler);
   },
-  onImport: callback => { ipcRenderer.on('import-request', () => callback()); }
+  onImport: callback => { ipcRenderer.on('import-request', () => callback()); },
+  onModelDefinition: callback => { ipcRenderer.on('model-definition-request', () => callback()); }
 });

@@ -80,6 +80,21 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         }
         try require(diskHit.reused, "Cache survives application restarts without adding to notebook")
 
+        let secondContext = selected("食べない")
+        let secondMeaning = Definition(head: "食べる", reading: "たべる", chinese: "不吃。", english: nil, source: "test")
+        let contextualLookup = try await reopened.resolve(secondContext, settings: settings, savedWords: [],
+                                                          requireExactContext: true) { secondMeaning }
+        try require(contextualLookup.definition == secondMeaning && !contextualLookup.reused,
+                    "A new context must not reuse a different sentence's definition")
+        let contextsReopened = DefinitionResolver(path: path, dictionary: dictionary)
+        for (form, expected) in [("食べた", first.definition), ("食べない", secondMeaning)] {
+            let hit = try await contextsReopened.resolve(selected(form), settings: settings, savedWords: [],
+                                                        requireExactContext: true) {
+                throw CacheTestFailure(message: "Exact context should survive a restart")
+            }
+            try require(hit.definition == expected && hit.reused, "Each context retains its own meaning")
+        }
+
         var savedExample = selected("食べた").occurrence
         let contextual = Definition(head: "食べる", reading: "たべる", chinese: "吃过亏。", english: nil, source: "saved")
         savedExample.definition = contextual

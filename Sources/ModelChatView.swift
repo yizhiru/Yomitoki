@@ -4,6 +4,7 @@ struct ModelChatView: View {
     @ObservedObject var chat: ModelChatState
     @ObservedObject var preferences: DefinitionPreferences
     let fontSize: Double
+    var returnTitle = "返回词典"
     @FocusState private var composing: Bool
     private let accent = AppTheme.accent
 
@@ -24,7 +25,7 @@ struct ModelChatView: View {
                     Button("清空当前对话", role: .destructive, action: chat.clearCurrent)
                 } label: { Image(systemName: "clock.arrow.circlepath").accessibilityLabel("对话记录") }
                     .menuStyle(.borderlessButton).fixedSize().help("切换对话记录或清空当前对话")
-                Button("返回词典", action: chat.dismiss).font(.system(size: 13))
+                Button(returnTitle, action: chat.dismiss).buttonStyle(AppActionButtonStyle())
             }.padding(.horizontal, 18).frame(height: 52)
             Divider()
             if let conversation = chat.current {
@@ -64,7 +65,7 @@ struct ModelChatView: View {
                             .font(.system(size: 14)).foregroundStyle(.secondary)
                         ForEach(["解释这段文字", "这里的语法怎么理解？", "翻译成自然的中文"], id: \.self) { suggestion in
                             Button(suggestion) { chat.draft = suggestion; composing = true }
-                                .buttonStyle(.bordered).font(.system(size: 14))
+                                .buttonStyle(AppActionButtonStyle())
                         }
                     }
                     ForEach(conversation.messages) { message in
@@ -129,7 +130,7 @@ struct ModelChatView: View {
                 Text("\(chat.draft.count)/\(ModelChatAPI.maximumQuestion)").font(.system(size: 12)).monospacedDigit()
                     .foregroundStyle(chat.draft.count > ModelChatAPI.maximumQuestion ? .red : .secondary)
                 Button("发送") { chat.send(settings: preferences.settings) }
-                    .buttonStyle(.borderedProminent).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(AppActionButtonStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
                     .disabled(!chat.canSend || chat.draft.count > ModelChatAPI.maximumQuestion)
             }
             HStack(alignment: .top) {

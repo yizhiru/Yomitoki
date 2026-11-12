@@ -21,13 +21,13 @@ async function readEbook(file, { signal, parent, timeoutMs = 30000 } = {}) {
   active = host;
   return new Promise((resolve, reject) => {
     let settled = false;
-    const finish = (error, sections) => {
+    const finish = (error, document) => {
       if (settled) return;
       settled = true; clearTimeout(timer); signal?.removeEventListener('abort', abort);
       ipcMain.removeHandler(inputChannel); ipcMain.removeListener(resultChannel, result);
       if (active === host) active = null;
       if (!host.isDestroyed()) host.destroy();
-      error ? reject(error) : resolve(sections);
+      error ? reject(error) : resolve(document);
     };
     const abort = () => finish(new Error('已取消导入。'));
     const timer = setTimeout(() => finish(new Error('电子书导入超时，请拆分书籍或检查文件。')), timeoutMs);
@@ -47,7 +47,7 @@ async function readEbook(file, { signal, parent, timeoutMs = 30000 } = {}) {
       if (!Array.isArray(value.sections) || !value.sections.length || value.sections.length > 10000
         || !value.sections.every(text => typeof text === 'string')
         || value.sections.reduce((sum, text) => sum + text.length, 0) > ((kind === 'MDX' || kind === 'ZIP') ? 100000000 : 10000000)) { finish(new Error('电子书正文无效或内容过多。')); return; }
-      finish(null, value.sections);
+      finish(null, { sections: value.sections, metadata: value.metadata });
     };
     ipcMain.on(resultChannel, result);
     signal?.addEventListener('abort', abort, { once: true });

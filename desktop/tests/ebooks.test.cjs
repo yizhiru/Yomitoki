@@ -22,7 +22,13 @@ test('EPUB archive limits and malformed MOBI headers', async () => {
 });
 test('native ebook import preserves the existing book contract and respects cancellation', async () => {
   const file = fixturePath(cases.find(value => value.id === 'epub3-japanese-ruby')); let calls = 0;
-  const value = await readBook(file, { extractEbook: async chosen => { calls++; assert.equal(chosen, file); return ['第一章\n\n喫茶店へ行く。', '第二章\n\n本を読む。']; } });
+  const value = await readBook(file, { extractEbook: async chosen => {
+    calls++;
+    assert.equal(chosen, file);
+    return { sections: ['第一章\n\n喫茶店へ行く。', '第二章\n\n本を読む。'], metadata: { title: ' 喫茶店 ', author: '作者' } };
+  } });
+  assert.equal(value.metadata.title, '喫茶店');
+  assert.equal(value.metadata.author, '作者');
   assert.equal(value.kind, 'EPUB'); assert.ok(value.id); assert.equal(value.page, 0); assert.ok(value.pages.join('\n').includes('第二章'));
   const controller = new AbortController(); controller.abort();
   await assert.rejects(readBook(file, { signal: controller.signal, extractEbook: async () => { calls++; } }));
