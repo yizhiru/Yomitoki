@@ -83,7 +83,12 @@ test('阅读、三级选文、模型功能、生词导出、设置持久化与�
     await page.getByRole('button', { name: '返回原文' }).click();
     await expect(page.locator('#reader')).toContainText('穏やかに微笑んだ');
     await page.locator('#reading-tab').click();
-    await page.locator('#detail-split').focus(); await page.keyboard.press('ArrowLeft');
+    const detailSplitter = page.locator('#detail-split');
+    if (await detailSplitter.isHidden()) {
+      await page.getByRole('button', { name: '展开右栏' }).click();
+    }
+    await expect(detailSplitter).toBeVisible();
+    await detailSplitter.press('ArrowLeft');
     await expect.poll(() => JSON.parse(fs.readFileSync(path.join(folder, 'library.json'))).settings.detailWidth).toBe(390);
     await page.locator('#settings-button').click();
     await expect(page.locator('#single-click')).not.toBeChecked();
