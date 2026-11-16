@@ -6,7 +6,7 @@ const sampleText = '雨が上がったので、傘を閉じて小さな喫茶店
 function defaults() {
   const book = { id: randomUUID(), name: '雨上がりの喫茶店（示例）', kind: 'TXT', pages: [sampleText], page: 0 };
   return { version: 1, books: [book], current: book.id, words: [], notes: [], chats: [], caches: {},
-    settings: { fontSize: 26, definitionSize: 20, singleClick: false, sidebarWidth: 220, detailWidth: 380,
+    settings: { fontSize: 26, definitionSize: 20, singleClick: false, showReadingKana: true, sidebarWidth: 220, detailWidth: 380,
       provider: 'deepseek', model: 'deepseek-flash', url: 'https://api.deepseek.com', mirror: 'hf', modelPath: '', translationAcceleration: 'auto' } };
 }
 class Store {

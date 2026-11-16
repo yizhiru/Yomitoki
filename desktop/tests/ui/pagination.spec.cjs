@@ -7,6 +7,7 @@ const { defaults } = require('../../src/store.cjs');
 test('EPUB adapts to the viewport and turns pages without vertical scrolling', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-pagination-'));
   const library = defaults();
+  library.settings.showReadingKana = false;
   Object.assign(library.books[0], {
     kind: 'EPUB',
     pages: [Array.from({ length: 36 }, (_, index) => `第${index + 1}段。雨が上がったので、傘を閉じて駅まで歩いた。`).join('\n\n'), '次の節。']
@@ -112,6 +113,7 @@ test('EPUB adapts to the viewport and turns pages without vertical scrolling', a
 test('restores each book’s text position after switching books and restarting', async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-progress-'));
   const library = defaults();
+  library.settings.showReadingKana = false;
   const body = Array.from({ length: 60 }, (_, index) => `第${index + 1}段。雨が上がったので、傘を閉じて駅まで歩いた。`).join('\n\n');
   Object.assign(library.books[0], { name: '分段阅读', kind: 'EPUB', pages: [body] });
   library.books.push({ id: 'scrolling-book', name: '滚动阅读', kind: 'TXT', pages: [body], page: 0 });

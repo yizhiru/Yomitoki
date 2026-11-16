@@ -7,6 +7,7 @@ const { defaults } = require('../../src/store.cjs');
 test('笔记按书管理，保留选文并返回原文', async () => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-notes-'));
   const library = defaults();
+  library.settings.showReadingKana = false;
   delete library.notes;
   library.books[0].pages.push('二ページ目の文章。');
   library.books.push({ id: 'second-book', name: '另一本书', kind: 'EPUB', pages: ['別の本。'], page: 0 });

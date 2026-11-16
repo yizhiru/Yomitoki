@@ -24,7 +24,7 @@ function selected(input) {
   const book = store.book;
   if (!book || !input || input.bookID !== book.id || input.page !== book.page) throw new Error('阅读位置已改变，请重新选中文字。');
   const text = book.pages[book.page];
-  const level = selectionLevel(text, input.start, input.end, dictionary.tokenizer, form => Boolean(importedDictionary?.meaning([form])) || dictionary.entries(form).length > 0);
+  const level = selectionLevel(text, input.start, input.end, dictionary.tokenizer, form => Boolean(importedDictionary?.meaning([form])) || dictionary.isWord(form));
   if (level === 'none' || input.end - input.start > 8000) throw new Error('请选中有效文字（最多 8000 字符）。');
   return { text: text.slice(input.start, input.end), before: text.slice(Math.max(0, input.start - 1600), input.start),
     after: text.slice(input.end, input.end + 1600), level, bookID: book.id, page: book.page,
@@ -58,6 +58,8 @@ async function saveSettings(input) {
   const next = { fontSize: numeric('fontSize', 16, 40), definitionSize: numeric('definitionSize', 14, 30),
     sidebarWidth: numeric('sidebarWidth', 160, 400), detailWidth: numeric('detailWidth', 260, 800),
     singleClick: input.singleClick === undefined ? current.singleClick : Boolean(input.singleClick),
+    highlightSavedWords: input.highlightSavedWords ?? current.highlightSavedWords ?? true,
+    showReadingKana: input.showReadingKana ?? current.showReadingKana ?? true,
     provider: input.provider ?? current.provider, model: input.model ?? current.model, url: input.url ?? current.url,
     mirror: input.mirror ?? current.mirror, translationAcceleration: input.translationAcceleration ?? current.translationAcceleration };
   if (!['deepseek', 'custom'].includes(next.provider) || typeof next.model !== 'string' || next.model.length > 200
@@ -224,7 +226,7 @@ async function dispatch(action, input = {}) {
       if (importing) throw new Error('已有文档正在导入，请等待或取消。');
       const controller = new AbortController(); importing = controller;
       try {
-        const result = await dialog.showOpenDialog(window, { title: '导入日语文档', properties: ['openFile'], filters: [{ name: '阅读文档', extensions: ['pdf', 'epub', 'mobi', 'txt'] }] });
+        const result = await dialog.showOpenDialog(window, { title: '导入日语文档', properties: ['openFile'], filters: [{ name: '阅读文档', extensions: ['pdf', 'epub', 'mobi', 'srt', 'txt', 'md'] }] });
         if (result.canceled) return null;
         controller.signal.throwIfAborted();
         const book = await readBook(result.filePaths[0], { signal: controller.signal, parent: window });
@@ -284,6 +286,13 @@ async function dispatch(action, input = {}) {
     case 'level': { const selection = selected(input); return selection.level; }
     case 'save-note': store.saveNote(input); return state();
     case 'delete-note': store.deleteNote(input.id); return state();
+    case 'reading-annotations': {
+      const book = store.book;
+      if (!book || book.id !== input.bookID || book.page !== input.page) return [];
+      const { highlightSavedWords = true, showReadingKana = true } = store.data.settings;
+      const saved = new Set(highlightSavedWords ? store.data.words.map(word => word.definition.head) : []);
+      return showReadingKana || saved.size ? dictionary.readingAnnotations(book.pages[book.page], saved, showReadingKana) : [];
+    }
     case 'word-at': {
       const book = store.book;
       if (!book) return null;

@@ -28,7 +28,7 @@ swiftc -module-cache-path "$PWD/.build/swift-cache" \
 .build/reader-tests
 swiftc -module-cache-path "$PWD/.build/swift-cache" \
     -target "$(uname -m)-apple-macosx14.0" \
-    Sources/TranslationSelection.swift Sources/Theme.swift Sources/ReadingText.swift Tests/ReadingInteractionTests.swift -o .build/interaction-tests
+    Sources/TranslationSelection.swift Sources/Theme.swift Sources/ReadingText.swift Sources/Core.swift Sources/EbookImport.swift Sources/PartsOfSpeech.swift Tests/ReadingInteractionTests.swift -lsqlite3 -o .build/interaction-tests
 .build/interaction-tests
 swiftc -module-cache-path "$PWD/.build/swift-cache" \
     -target "$(uname -m)-apple-macosx14.0" \

@@ -2,11 +2,15 @@ const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { defaults } = require('../../src/store.cjs');
 const http = require('node:http');
 
 test('阅读、三级选文、模型功能、生词导出、设置持久化与真实文档导入', async ({}, testInfo) => {
   test.setTimeout(180000);
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-ui-'));
+  const initial = defaults();
+  initial.settings.showReadingKana = false;
+  fs.writeFileSync(path.join(folder, 'library.json'), JSON.stringify(initial));
   const requests = [];
   const server = http.createServer((request, response) => {
     let raw = ''; request.on('data', chunk => raw += chunk);
@@ -33,7 +37,21 @@ test('阅读、三级选文、模型功能、生词导出、设置持久化与�
   async function select(page, text) {
     await page.locator('#reader').evaluate((reader, text) => {
       const start = reader.textContent.indexOf(text); if (start < 0) throw new Error('找不到测试选文');
-      const range = document.createRange(); range.setStart(reader.firstChild, start); range.setEnd(reader.firstChild, start + text.length);
+      const walker = document.createTreeWalker(reader, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      let offset = 0, started = false;
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const end = offset + node.length;
+        if (!started && start < end) {
+          range.setStart(node, start - offset);
+          started = true;
+        }
+        if (start + text.length <= end) {
+          range.setEnd(node, start + text.length - offset);
+          break;
+        }
+        offset = end;
+      }
       window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
       document.dispatchEvent(new Event('selectionchange'));
     }, text);

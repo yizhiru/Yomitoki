@@ -3,6 +3,46 @@ import SwiftUI
 
 /// Keeps native selection, dragging, contextual menus, and copy behavior intact.
 final class ReadingTextView: NSTextView {
+    static let kanaAttribute = NSAttributedString.Key("ReadingKana")
+    var showsKana = false
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard showsKana else { super.draw(dirtyRect); return }
+        NSGraphicsContext.saveGraphicsState()
+        super.draw(dirtyRect)
+        NSGraphicsContext.restoreGraphicsState()
+        guard let storage = textStorage, let layout = layoutManager, let container = textContainer,
+              storage.length > 0 else { return }
+        let origin = textContainerOrigin
+        let drawingBounds = dirtyRect.offsetBy(dx: -origin.x, dy: -origin.y)
+        let glyphs = layout.glyphRange(forBoundingRect: NSRect(
+            x: 0, y: max(0, drawingBounds.minY),
+            width: container.size.width, height: max(1, drawingBounds.height + textContainerInset.height)
+        ), in: container)
+        let visible = layout.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+        storage.enumerateAttribute(Self.kanaAttribute, in: visible, options: [.longestEffectiveRangeNotRequired]) { value, range, _ in
+            guard let kana = value as? String, !kana.isEmpty else { return }
+            var range = range
+            _ = storage.attribute(Self.kanaAttribute, at: range.location, effectiveRange: &range)
+            let glyphRange = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            var line = NSRange()
+            _ = layout.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: &line)
+            guard NSMaxRange(glyphRange) <= NSMaxRange(line) else { return }
+            let bounds = layout.boundingRect(forGlyphRange: glyphRange, in: container)
+            let baseSize = (storage.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont)?.pointSize ?? 26
+            let reading = kana as NSString
+            var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: baseSize * 0.47),
+                                                              .foregroundColor: AppTheme.accentColor]
+            let naturalWidth = reading.size(withAttributes: attributes).width
+            if naturalWidth > bounds.width, bounds.width > 0 {
+                attributes[.font] = NSFont.systemFont(ofSize: baseSize * 0.47 * bounds.width / naturalWidth)
+            }
+            let size = reading.size(withAttributes: attributes)
+            reading.draw(at: NSPoint(x: origin.x + bounds.midX - size.width / 2,
+                                     y: origin.y + bounds.minY - size.height), withAttributes: attributes)
+        }
+    }
+
     var onSelectionBegan: () -> Void = {}
     var onSelectionEnded: () -> Void = {}
     var onSingleClick: (NSPoint) -> Void = { _ in }
@@ -88,7 +128,10 @@ struct ReadingText: NSViewRepresentable {
     var onPageTurn: ((Bool) -> Void)?
     var onReadingProgress: ((Int, UUID) -> Void)?
 
-    static func pageStarts(for text: NSAttributedString, size: CGSize) -> [Int] {
+    var annotations: [ReadingAnnotation] = []
+    var horizontalInset: CGFloat = 4
+
+    static func pageStarts(for text: NSAttributedString, size: CGSize, verticalInset: CGFloat = 12) -> [Int] {
         let storage = NSTextStorage(attributedString: text)
         let layout = NSLayoutManager()
         let container = NSTextContainer(containerSize: CGSize(width: max(11, size.width - 8),
@@ -99,7 +142,7 @@ struct ReadingText: NSViewRepresentable {
         var starts = [0]
         var pageTop: CGFloat = 0
         layout.enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, line, _ in
-            guard line.location > 0, rect.maxY - pageTop > max(1, size.height - 24) else { return }
+            guard line.location > 0, rect.maxY - pageTop > max(1, size.height - 2 * verticalInset) else { return }
             let offset = layout.characterRange(forGlyphRange: line, actualGlyphRange: nil).location
             guard offset > (starts.last ?? 0), offset < text.length else { return }
             starts.append(offset)
@@ -127,6 +170,7 @@ struct ReadingText: NSViewRepresentable {
         var visibleRange: NSRange?
         var pagination: ReadingPagination?
         var attributedText = NSAttributedString()
+        var annotations: [ReadingAnnotation] = []
         var requestedReadingOffset: Int?
         var appliedReadingOffset: Int?
         var onReadingProgress: ((Int, UUID) -> Void)?
@@ -227,11 +271,13 @@ struct ReadingText: NSViewRepresentable {
             onReadingProgress(offset, revision)
         }
 
-        func restoreScroll(_ offset: Int, in scroll: NSScrollView, view: NSTextView) {
+        func restoreScroll(_ offset: Int, in scroll: NSScrollView, view: ReadingTextView) {
             appliedReadingOffset = offset
+            let clip = scroll.contentView
             guard offset > 0, let layout = view.layoutManager, let container = view.textContainer,
                   let length = view.textStorage?.length, length > 0 else {
-                view.scrollToBeginningOfDocument(nil)
+                clip.scroll(to: NSPoint(x: clip.bounds.minX, y: 0))
+                scroll.reflectScrolledClipView(clip)
                 return
             }
             layout.ensureLayout(for: container)
@@ -240,9 +286,9 @@ struct ReadingText: NSViewRepresentable {
             let line = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil)
             // Ensure the text view has sized itself before moving the clip view to this line.
             view.scrollRangeToVisible(NSRange(location: character, length: 1))
-            let clip = scroll.contentView
+            let top = line.minY + (view.showsKana ? 0 : view.textContainerOrigin.y)
             let bounds = clip.constrainBoundsRect(NSRect(
-                origin: NSPoint(x: clip.bounds.minX, y: line.minY + view.textContainerOrigin.y),
+                origin: NSPoint(x: clip.bounds.minX, y: top),
                 size: clip.bounds.size))
             clip.scroll(to: bounds.origin)
             scroll.reflectScrolledClipView(clip)
@@ -417,18 +463,36 @@ struct ReadingText: NSViewRepresentable {
         coordinator.onReadingProgress = onReadingProgress
         defer { coordinator.updating = false }
         let newPage = coordinator.revision != revision
-        let newText = newPage || coordinator.fontSize != fontSize
+        let newText = newPage || coordinator.fontSize != fontSize || coordinator.annotations != annotations
+        let kanaSpace = annotations.contains { !$0.kana.isEmpty } ? ceil(fontSize * 0.65) : 0
+        let verticalInset = max(12, kanaSpace)
+        view.showsKana = kanaSpace > 0
+        let inset = NSSize(width: horizontalInset, height: verticalInset)
+        if view.textContainerInset != inset { view.textContainerInset = inset }
         if newText {
             let paragraph = NSMutableParagraphStyle()
-            paragraph.lineSpacing = 10
+            paragraph.lineSpacing = max(10, kanaSpace + 3)
             paragraph.paragraphSpacing = 7
+            paragraph.paragraphSpacingBefore = kanaSpace
             let font = NSFont(name: "HiraginoSans-W3", size: fontSize) ?? .systemFont(ofSize: fontSize)
-            coordinator.attributedText = NSAttributedString(
+            let text = NSMutableAttributedString(
                 string: bodyText.isEmpty ? "此页没有可提取的文字。" : bodyText,
                 attributes: [.font: font, .foregroundColor: AppTheme.textColor, .paragraphStyle: paragraph])
+            for annotation in annotations {
+                if !annotation.kana.isEmpty {
+                    text.addAttribute(ReadingTextView.kanaAttribute, value: annotation.kana, range: annotation.range)
+                }
+                if annotation.saved {
+                    text.addAttributes([.underlineStyle: NSUnderlineStyle.single.rawValue,
+                                        .underlineColor: AppTheme.accentColor,
+                                        .foregroundColor: AppTheme.accentColor], range: annotation.range)
+                }
+            }
+            coordinator.annotations = annotations
+            coordinator.attributedText = text
         }
         if let pageSize, newText || coordinator.pageSize != pageSize {
-            coordinator.pageStarts = Self.pageStarts(for: coordinator.attributedText, size: pageSize)
+            coordinator.pageStarts = Self.pageStarts(for: coordinator.attributedText, size: pageSize, verticalInset: verticalInset)
         }
         let starts = coordinator.pageStarts
         let index = pageSize == nil ? 0 : (starts.lastIndex { $0 <= readingOffset } ?? 0)

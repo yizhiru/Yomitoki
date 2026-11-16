@@ -241,6 +241,33 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         try FileManager.default.removeItem(at: deletionPath)
         deleting.remove(remaining)
         try require(deleting.library.words.isEmpty && deleting.selectedWord == nil, "Deleting the final word clears selection")
+        let subtitle = root.appendingPathComponent("字幕.srt")
+        try """
+        1
+        00:00:01,000 --> 00:00:03,000
+        <i>駅まで歩いた。</i>
+        また明日。
+
+        2
+        00:00:04,000 --> 00:00:05,000
+        おやすみ。
+        """.write(to: subtitle, atomically: true, encoding: .utf8)
+        let importedSubtitle = try await BookImport.read(subtitle)
+        try require(importedSubtitle.kind == "SRT" && importedSubtitle.pages == ["駅まで歩いた。\nまた明日。\n\nおやすみ。"],
+                    "SRT import strips timings and styling and keeps cue order")
+        let textFile = root.appendingPathComponent("日本語.txt")
+        let markdownFile = root.appendingPathComponent("日本語.md")
+        try Data("\u{FEFF}日本語の文章。\r\n\r\n次の段落。".utf8).write(to: textFile)
+        try "# 日本語\n文章。".data(using: .utf16)!.write(to: markdownFile)
+        let textBook = try await BookImport.read(textFile)
+        let markdownBook = try await BookImport.read(markdownFile)
+        try require(textBook.kind == "TXT" && textBook.pages.joined().contains("日本語の文章。"), "UTF-8 BOM TXT import")
+        try require(markdownBook.kind == "MD" && markdownBook.pages.joined().contains("# 日本語"), "UTF-16 Markdown import")
+        try Data([0xff, 0xff]).write(to: textFile)
+        do {
+            _ = try await BookImport.read(textFile)
+            throw NSError(domain: "ReadingTest", code: 1)
+        } catch is BookImport.Failure {}
         let progressDirectory = root.appendingPathComponent("reading-progress")
         try FileManager.default.createDirectory(at: progressDirectory, withIntermediateDirectories: true)
         let firstBook = Book(name: "第一冊", kind: "EPUB", pages: ["最初の節", "次の節の読みかけの文章"])

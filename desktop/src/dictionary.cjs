@@ -9,6 +9,22 @@ const POS = { n: '名词', 'n-pr': '专有名词', adj: '形容词', 'adj-i': '�
   v5g: '五段动词（が行）', v5s: '五段动词（さ行）', v5t: '五段动词（た行）', v5b: '五段动词（ば行）',
   v5n: '五段动词（な行）', v5u: '五段动词（わ行）', vs: 'する动词', 'vs-i': 'する动词', vk: '来る动词',
   vi: '自动词', vt: '他动词', adv: '副词', exp: '惯用表达', pn: '代词', conj: '连词', int: '感叹词' };
+function contextualReading(text, start, surface, candidates) {
+  const before = text.slice(0, start).split(/[。！？!?\n、，,]/u).at(-1);
+  let patterns;
+  if (surface.startsWith('行')) {
+    patterns = [[/(?:駅|学校|病院|会社|公園|店|東京|京都|家|旅行|買い物)(?:へ|に)$/u, 'い'],
+      [/(?:会議|調査|試験|実験|検査|手術|練習|授業|選挙|式典|研究)を$/u, 'おこな']];
+  } else if (surface.startsWith('開')) {
+    patterns = [[/(?:扉|ドア|窓|門|蓋|ふた|店)が$/u, 'あ'],
+      [/(?:扉|ドア|窓|門|蓋|ふた|本|傘|会議|会|店|口|目)を$/u, 'ひら'],
+      [/(?:会議|会|店|花|花びら)が$/u, 'ひら']];
+  } else return '';
+  const matching = patterns.filter(([pattern]) => pattern.test(before));
+  if (matching.length !== 1) return '';
+  const readings = [...candidates].filter(reading => reading.startsWith(matching[0][1]));
+  return readings.length === 1 ? readings[0] : '';
+}
 class Dictionary {
   async load(resources) {
     const SQL = await initSQL({ locateFile: file => path.join(path.dirname(require.resolve('sql.js')), file) });
@@ -42,6 +58,80 @@ class Dictionary {
       english: entry.meaning.split('\n').slice(0, 4).map((meaning, index) => `${index + 1}. ${meaning}`).join('\n'),
       pos: entry.pos.split(' ').filter(Boolean).map(code => POS[code] || (code.startsWith('v5') ? '五段动词' : code)), source: '离线词典' }
       : { head: base, reading, chinese: this.chinese.get(base) || '', english: '', pos: [], source: '离线词典' };
+  }
+  isWord(form) {
+    if (this.entries(form).length) return true;
+    const tokens = this.tokens(form);
+    if (tokens.length < 2 || tokens[0].surface_form.length === 0 ||
+        tokens[1].basic_form !== 'する' || tokens.slice(2).some(token => !['助動詞', '助詞'].includes(token.pos))) return false;
+    return this.entries(tokens[0].surface_form).some(entry =>
+      entry.pos.split(' ').some(pos => ['vs', 'vs-i', 'vs-s'].includes(pos)));
+  }
+  readingAnnotations(text, saved, showKana) {
+    let cursor = 0;
+    const annotations = [];
+    const readingsByForm = new Map();
+    for (const token of this.tokens(text)) {
+      const surface = token.surface_form;
+      const start = text.indexOf(surface, cursor);
+      if (start < 0) continue;
+      cursor = start + surface.length;
+      const marked = saved.has(surface) || saved.has(token.basic_form);
+      let kana = showKana && /\p{Script=Han}/u.test(surface) && /^[ァ-ヺー]+$/u.test(token.reading ?? '')
+        ? hira(token.reading) : '';
+      if (kana && surface === '行っ' && /^(?:た|て)/u.test(text.slice(cursor))) {
+        const chosen = contextualReading(text, start, surface, new Set(['い', 'おこな']));
+        kana = chosen ? chosen + 'っ' : '';
+      } else if (kana && token.basic_form === surface) {
+        const base = token.basic_form === '*' ? surface : token.basic_form;
+        if (!readingsByForm.has(base)) {
+          readingsByForm.set(base, new Set(this.entries(base).filter(entry => entry.head === base)
+            .map(entry => hira(entry.reading))));
+        }
+        const candidates = readingsByForm.get(base);
+        if (candidates.size > 1) {
+          const chosen = contextualReading(text, start, surface, candidates);
+          if (!chosen) kana = '';
+          else if (token.basic_form === surface) kana = chosen;
+          else if (!chosen.startsWith(kana.slice(0, 1))) kana = '';
+        } else if (token.basic_form === surface && candidates.size === 1 && !candidates.has(kana)) {
+          kana = '';
+        }
+      }
+      if (!kana) {
+        if (marked) annotations.push({ start, end: cursor, saved: true, kana: '' });
+        continue;
+      }
+      let from = 0, to = surface.length, kanaStart = 0, kanaEnd = kana.length;
+      while (from < to && kanaStart < kanaEnd && surface[from] === kana[kanaStart]) {
+        from++; kanaStart++;
+      }
+      while (from < to && kanaStart < kanaEnd && surface[to - 1] === kana[kanaEnd - 1]) {
+        to--; kanaEnd--;
+      }
+      if (marked && from > 0) annotations.push({ start, end: start + from, saved: true, kana: '' });
+      if (to > from) {
+        const base = surface.slice(from, to), reading = kana.slice(kanaStart, kanaEnd);
+        const characters = [...base];
+        let prefix = '';
+        if (characters.length === 2 && /^[ぁ-ゖ]$/u.test(surface[to] || '') && /^\p{Script=Han}{2}$/u.test(base)) {
+          const choices = new Set(this.entries(characters[0])
+            .filter(entry => entry.head === characters[0])
+            .map(entry => hira(entry.reading))
+            .filter(value => value && reading.startsWith(value) && value.length < reading.length));
+          if (choices.size === 1) prefix = [...choices][0];
+        }
+        if (prefix) {
+          const boundary = start + from + characters[0].length;
+          annotations.push({ start: start + from, end: boundary, saved: marked, kana: prefix });
+          annotations.push({ start: boundary, end: start + to, saved: marked, kana: reading.slice(prefix.length) });
+        } else {
+          annotations.push({ start: start + from, end: start + to, saved: marked, kana: reading });
+        }
+      }
+      if (marked && to < surface.length) annotations.push({ start: start + to, end: cursor, saved: true, kana: '' });
+    }
+    return annotations;
   }
   wordAt(text, offset) {
     let cursor = 0;
@@ -99,8 +189,9 @@ function selectionLevel(text, start, end, tokenizer, dictionaryWord = () => fals
   if ((/\n\s*\n/.test(selected) || sentences.length > 1) && completeStart && completeEnd) return 'paragraph';
   const tokens = tokenizer ? tokenizer.tokenize(selected) : [];
   const content = tokens.filter(token => !['助詞', '助動詞', '記号'].includes(token.pos));
+  if (dictionaryWord(selected)) return 'word';
   if (completeStart && completeEnd && (/[。！？!?]/.test(selected) || content.length > 1)) return 'sentence';
-  if (dictionaryWord(selected) || tokens.length === 1 || (content.length === 1 && !tokens.some(token => token.pos === '助詞'))) return 'word';
+  if (tokens.length === 1 || (content.length === 1 && !tokens.some(token => token.pos === '助詞'))) return 'word';
   return 'fragment';
 }
 module.exports = { Dictionary, ImportedDictionary, selectionLevel, hira };

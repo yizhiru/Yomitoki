@@ -20,10 +20,35 @@ function paginate(text) {
   if (current) pages.push(current);
   return pages;
 }
+async function readText(file, description) {
+  const info = await fs.stat(file);
+  if (info.size > 10_000_000) throw new Error(`${description}超过 10 MB。`);
+  const bytes = await fs.readFile(file);
+  if (bytes.length > 10_000_000) throw new Error(`${description}超过 10 MB。`);
+  const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? 'utf-16le'
+    : bytes[0] === 0xfe && bytes[1] === 0xff ? 'utf-16be' : 'utf-8';
+  try {
+    const text = new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    if (text.includes('\0')) throw new Error('invalid text');
+    return text;
+  } catch { throw new Error(`无法读取${description}的编码，请以 UTF-8 或 UTF-16 保存后再导入。`); }
+}
+async function readSubtitles(file) {
+  const text = await readText(file, '字幕文件');
+  const timing = /^\s*\d{2,}:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d{2,}:\d{2}:\d{2}[,.]\d{3}(?:[ \t].*)?$/;
+  const cues = text.replace(/\r\n?/g, '\n').split(/\n[ \t]*\n/).flatMap(block => {
+    const lines = block.split('\n');
+    const start = lines.findIndex(line => timing.test(line));
+    return start < 0 ? [] : [lines.slice(start + 1).join('\n').replace(/<\/?(?:i|b|u|font)\b[^>]*>/gi, '')];
+  });
+  const pages = paginate(cues.join('\n\n'));
+  if (!pages.length) throw new Error('SRT 文件没有可读取的字幕。');
+  return pages;
+}
 async function readBook(file, { signal, parent, extractEbook } = {}) {
   signal?.throwIfAborted();
   const kind = path.extname(file).slice(1).toUpperCase();
-  if (!['PDF', 'EPUB', 'MOBI', 'TXT'].includes(kind)) throw new Error('请选择 PDF、EPUB、MOBI 或 UTF-8 TXT 文件。');
+  if (!['PDF', 'EPUB', 'MOBI', 'TXT', 'MD', 'SRT'].includes(kind)) throw new Error('请选择 PDF、EPUB、MOBI、SRT、TXT 或 MD 文件。');
   if ((await fs.stat(file)).size > 300_000_000) throw new Error('文件超过 300 MB，请先拆分。');
   let pages, metadata;
   if (kind === 'PDF') {
@@ -53,7 +78,8 @@ async function readBook(file, { signal, parent, extractEbook } = {}) {
         page.cleanup();
       }
     } finally { await task.destroy(); }
-  } else if (kind === 'TXT') pages = paginate(await fs.readFile(file, 'utf8'));
+  } else if (kind === 'SRT') pages = await readSubtitles(file);
+  else if (kind === 'TXT' || kind === 'MD') pages = paginate(await readText(file, '文本文件'));
   else {
     const extract = extractEbook || require('./ebook-import.cjs').readEbook;
     const ebook = await extract(file, { signal, parent });

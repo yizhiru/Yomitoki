@@ -87,6 +87,13 @@ test('UTF-8 TXT 导入与段落重排', async () => {
   try {
     const file = path.join(folder, '日本語 文書.txt'); fs.writeFileSync(file, '私は本を読む。\n\n次の段落。');
     const book = await readBook(file); assert.equal(book.kind, 'TXT'); assert.equal(book.pages[0], '私は本を読む。\n\n次の段落。');
+    const markdown = path.join(folder, '読書.md');
+    fs.writeFileSync(markdown, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('# 日本語\n文章。', 'utf16le')]));
+    const importedMarkdown = await readBook(markdown);
+    assert.equal(importedMarkdown.kind, 'MD');
+    assert.equal(importedMarkdown.pages[0], '# 日本語\n文章。');
+    fs.writeFileSync(file, Buffer.from([0xff, 0xff]));
+    await assert.rejects(readBook(file), /编码/);
     assert.equal(paginate('あ'.repeat(1100) + '\n\n次の段落。').length, 2);
     await assert.rejects(readBook(path.join(folder, 'unsupported.exe')), /PDF/);
   } finally { fs.rmSync(folder, { recursive: true, force: true }); }
@@ -96,6 +103,35 @@ test('真实词典与日语形态分析：基本形、读音及三级选区', as
   const value = dictionary.lookup('微笑んだ');
   assert.equal(value.head, '微笑む'); assert.ok(value.english); assert.ok(value.pos.length);
   assert.equal(dictionary.lookup('食べました').head, '食べる');
+  for (const [sentence, base, kana] of [
+    ['電車が来た。', '来', 'き'], ['来ない。', '来', 'こ'], ['来れば。', '来', 'く'],
+    ['食べた。', '食', 'た'], ['歩いた。', '歩', 'ある'], ['読みました。', '読', 'よ'],
+    ['取り出した。', '取り出', 'とりだ'],
+    ['駅に行った。', '行', 'い'], ['会議を行った。', '行', 'おこな'],
+    ['扉が開く。', '開', 'あ'], ['本を開く。', '開', 'ひら'],
+  ]) {
+    const readings = dictionary.readingAnnotations(sentence, new Set(), true);
+    assert.ok(readings.some(({ start, end, kana: reading }) => sentence.slice(start, end) === base && reading === kana), sentence);
+  }
+  for (const sentence of ['行った。', '開く。']) {
+    const annotations = dictionary.readingAnnotations(sentence, new Set(), true);
+    assert.equal(annotations.some(({ start, end }) => /^[行開]$/.test(sentence.slice(start, end))), false);
+  }
+  const compound = '日本語を勉強する。';
+  assert.ok(dictionary.readingAnnotations(compound, new Set(), true)
+    .some(({ start, end, kana }) => compound.slice(start, end) === '日本語' && kana === 'にほんご'));
+  const rain = '雨上がり。';
+  const rainReadings = dictionary.readingAnnotations(rain, new Set(), true);
+  assert.ok(rainReadings.some(({ start, end, kana }) => rain.slice(start, end) === '雨' && kana === 'あめ'));
+  assert.ok(rainReadings.some(({ start, end, kana }) => rain.slice(start, end) === '上' && kana === 'あ'));
+  for (const surface of ['注文して', '注文した', '注文します', '注文しない']) {
+    assert.equal(dictionary.lookup(surface).head, '注文');
+    const sentence = `あとは${surface}くれりゃあ。`;
+    const start = sentence.indexOf(surface);
+    assert.equal(selectionLevel(sentence, start, start + surface.length, dictionary.tokenizer, word => dictionary.isWord(word)), 'word');
+  }
+  const sentence = '私は本を読む。';
+  assert.equal(selectionLevel(sentence, 0, sentence.length, dictionary.tokenizer, word => dictionary.isWord(word)), 'sentence');
   const text = '私は本を読む。\n\n彼は微笑んだ。';
   assert.equal(selectionLevel(text, 0, 8, dictionary.tokenizer), 'sentence');
   assert.equal(selectionLevel(text, 0, text.length, dictionary.tokenizer), 'paragraph');

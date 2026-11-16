@@ -1,11 +1,15 @@
 const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
+const { defaults } = require('../../src/store.cjs');
 const os = require('node:os');
 const { cases, compact, expectedBlocks, fixturePath } = require('../fixtures/ebooks.cjs');
 test('built-in EPUB/MOBI import, limits, cancellation and persisted reading work without calibre', async ({}, testInfo) => {
   test.setTimeout(180000);
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-epub-日本語 '));
+  const initial = defaults();
+  initial.settings.showReadingKana = false;
+  fs.writeFileSync(path.join(folder, 'library.json'), JSON.stringify(initial));
   const project = path.join(__dirname, '../..');
   const launch = () => electron.launch({ ...(process.env.YOMITOKI_EXECUTABLE ? { executablePath: process.env.YOMITOKI_EXECUTABLE } : {}),
     args: process.env.YOMITOKI_EXECUTABLE ? [] : [project], env: { ...process.env, YOMITOKI_DATA_DIRECTORY: folder } });

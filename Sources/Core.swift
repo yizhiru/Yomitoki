@@ -200,18 +200,66 @@ enum BookImport {
         switch kind {
         case "PDF":
             (pages, metadata) = try await Task.detached(priority: .userInitiated) { try readPDF(url) }.value
+        case "TXT", "MD":
+            pages = try await Task.detached(priority: .userInitiated) {
+                paginate(try readText(url, description: "文本文件"))
+            }.value
+            metadata = nil
+        case "SRT":
+            pages = try await Task.detached(priority: .userInitiated) { try readSubtitles(url) }.value
+            metadata = nil
         case "EPUB", "MOBI":
             let ebook = try await EbookImport.readDocument(url, resources: ebookResources, timeout: timeout)
             pages = paginate(ebook.sections.joined(separator: "\n\n"))
             metadata = ebook.metadata
         default:
-            throw Failure(message: "请选择 PDF、EPUB 或 MOBI 文件。")
+            throw Failure(message: "请选择 PDF、EPUB、MOBI、SRT、TXT 或 MD 文件。")
         }
         try Task.checkCancellation()
         guard pages.contains(where: { !$0.isEmpty }) else {
             throw Failure(message: "文件中没有可提取的文字。扫描版 PDF 需要先进行 OCR。")
         }
         return Book(name: url.lastPathComponent, kind: kind, pages: pages, metadata: metadata)
+    }
+
+    private static func readText(_ url: URL, description: String) throws -> String {
+        guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 10_000_000 else {
+            throw Failure(message: "\(description)超过 10 MB。")
+        }
+        let data = try Data(contentsOf: url)
+        guard data.count <= 10_000_000 else { throw Failure(message: "\(description)超过 10 MB。") }
+        let hasUTF16BOM = data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff])
+        guard let text = String(data: data, encoding: hasUTF16BOM ? .utf16 : .utf8),
+              !text.contains("\0") else {
+            throw Failure(message: "无法读取\(description)的编码，请以 UTF-8 或 UTF-16 保存后再导入。")
+        }
+        return text.hasPrefix("\u{FEFF}") ? String(text.dropFirst()) : text
+    }
+
+    private static func readSubtitles(_ url: URL) throws -> [String] {
+        let text = try readText(url, description: "字幕文件")
+        let cues = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+            .components(separatedBy: "\n")
+        let timing = try NSRegularExpression(pattern: #"^\s*\d{2,}:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d{2,}:\d{2}:\d{2}[,.]\d{3}(?:\s.*)?$"#)
+        var output: [String] = []
+        var cue: [String] = []
+        var inCue = false
+        for line in cues {
+            if timing.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) != nil {
+                if !cue.isEmpty { output.append(cue.joined(separator: "\n")); cue.removeAll() }
+                inCue = true
+            } else if line.trimmingCharacters(in: .whitespaces).isEmpty {
+                if !cue.isEmpty { output.append(cue.joined(separator: "\n")); cue.removeAll() }
+                inCue = false
+            } else if inCue {
+                cue.append(line.replacingOccurrences(of: #"</?(?:i|b|u|font)\b[^>]*>"#, with: "", options: [.regularExpression, .caseInsensitive]))
+            }
+        }
+        if !cue.isEmpty { output.append(cue.joined(separator: "\n")) }
+        let pages = paginate(output.joined(separator: "\n\n"))
+        guard !pages.isEmpty else { throw Failure(message: "SRT 文件没有可读取的字幕。") }
+        return pages
     }
 
     private static func readPDF(_ url: URL) throws -> ([String], BookMetadata?) {
@@ -270,6 +318,12 @@ enum BookImport {
         if !page.isEmpty { result.append(page) }
         return result
     }
+}
+
+struct ReadingAnnotation: Equatable {
+    let range: NSRange
+    let kana: String
+    let saved: Bool
 }
 
 final class Lexicon {
@@ -409,6 +463,12 @@ final class Lexicon {
             if let entry = entries(base).first(where: { entry in entry.pos.contains { classes.contains($0) } }) {
                 return entry
             }
+            if replacement == "する", base.hasSuffix("する") {
+                let noun = String(base.dropLast(2))
+                if !noun.isEmpty, let entry = entries(noun).first(where: { $0.pos.contains("vs") || $0.pos.contains("vs-i") || $0.pos.contains("vs-s") }) {
+                    return entry
+                }
+            }
         }
         return nil
     }
@@ -473,6 +533,22 @@ final class Lexicon {
         return nil
     }
 
+    private static let kuruReadings: [String: String] = {
+        var readings: [String: String] = [:]
+        let endings = [
+            ("き", ["た", "て", "たら", "たり", "ます", "ました", "ません", "ませんでした", "ましょう",
+                   "たい", "たかった", "たくない", "ている", "ていた", "ています", "ていました", "ていない",
+                   "ていなかった", "てしまう", "てしまった"]),
+            ("こ", ["ない", "なかった", "なくて", "なければ", "よう", "い", "られる", "られた", "られない",
+                   "られなかった", "られます", "させる", "させた", "させない", "させます", "れる", "れた", "れない"]),
+            ("く", ["れば"]),
+        ]
+        for (stem, forms) in endings {
+            for form in forms { readings["来" + form] = stem + form }
+        }
+        return readings
+    }()
+
     private static let inflections: [(String, String, Set<String>)] = {
         var rules: [(String, String, Set<String>)] = []
         func add(_ endings: [String], _ root: String, _ classes: Set<String>) {
@@ -481,16 +557,15 @@ final class Lexicon {
         let polite = ["ます", "ました", "ません", "ませんでした", "ましょう", "たい", "たかった", "たくない"]
         let negative = ["ない", "なかった", "なくて", "なければ"]
         let progressive = ["いる", "いた", "います", "いました", "いない", "いなかった", "しまう", "しまった"]
-        add(["た", "て", "れば", "よう", "ろ"] + polite + negative
+        add(["た", "て", "たら", "たり", "れば", "よう", "ろ"] + polite + negative
             + ["られる", "られた", "られない", "られなかった", "させる", "させた", "させられる", "させられた"]
             + progressive.map { "て" + $0 }, "る", ["v1", "v1-s"])
         add(["した", "して", "しない", "しなかった", "しなくて", "すれば", "しよう", "された", "される", "させる"]
             + polite.map { "し" + $0 } + progressive.map { "して" + $0 }, "する", ["vs-i", "vs-s", "vs"])
-        add(["来た", "来て", "来ない", "来なかった", "来れば", "来よう", "来られる", "来られた"]
-            + polite.map { "来" + $0 } + progressive.map { "来て" + $0 }, "来る", ["vk"])
+        add(Array(kuruReadings.keys).sorted(), "来る", ["vk"])
         add(["きた", "きて", "こない", "こなかった", "くれば", "こよう", "こられる", "こられた"]
             + polite.map { "き" + $0 } + progressive.map { "きて" + $0 }, "くる", ["vk"])
-        add(["かった", "くて", "くない", "くなかった", "くなくて", "ければ"], "い", ["adj-i", "adj-ix"])
+        add(["かった", "く", "くて", "くない", "くなかった", "くなくて", "ければ"], "い", ["adj-i", "adj-ix"])
         add(["よかった", "よくて", "よくない", "よくなかった", "よければ"], "いい", ["adj-ix"])
         add(["だった", "ではない", "ではなかった", "じゃない", "じゃなかった", "な"], "", ["adj-na"])
         let godan = [("う", "い", "わ", "っ", "え", "お", "v5u"), ("つ", "ち", "た", "っ", "て", "と", "v5t"),
@@ -503,7 +578,7 @@ final class Lexicon {
             add(negative.map { a + $0 }, base, [type])
             let te = base == "ぐ" || past == "ん" ? "で" : "て"
             let ta = te == "で" ? "だ" : "た"
-            add([past + ta, past + te] + progressive.map { past + te + $0 }, base, [type])
+            add([past + ta, past + te, past + ta + "ら", past + ta + "り"] + progressive.map { past + te + $0 }, base, [type])
             add([e + "ば", e + "る", e + "た", e + "ない", e + "なかった", o + "う",
                  a + "れる", a + "れた", a + "れない", a + "れなかった", a + "せる", a + "せた",
                  a + "せられる", a + "せられた"], base, [type])
@@ -513,6 +588,170 @@ final class Lexicon {
             $0.element.0.count == $1.element.0.count ? $0.offset < $1.offset : $0.element.0.count > $1.element.0.count
         }.map(\.element)
     }()
+
+    private func inflectedReading(for surface: String) -> (readings: Set<String>, heads: Set<String>) {
+        var readings = Set<String>()
+        var heads = Set<String>()
+        var suffixLength: Int?
+        for (suffix, replacement, classes) in Self.inflections where surface.hasSuffix(suffix) {
+            let length = suffix.count
+            if let suffixLength, length < suffixLength { break }
+            let prefix = surface.dropLast(length)
+            let base = String(prefix) + replacement
+            for entry in entries(base) where entry.pos.contains(where: classes.contains) {
+                if let kuru = Self.kuruReadings[suffix], classes.contains("vk") {
+                    guard entry.reading.hasSuffix("くる") else { continue }
+                    readings.insert(String(entry.reading.dropLast(2)) + kuru)
+                } else {
+                    guard !prefix.isEmpty, entry.reading.hasSuffix(replacement),
+                          suffix.range(of: #"^[ぁ-ゖ]+$"#, options: .regularExpression) != nil else { continue }
+                    readings.insert(String(entry.reading.dropLast(replacement.count)) + suffix)
+                }
+                heads.insert(entry.head)
+                suffixLength = length
+            }
+        }
+        return (readings, heads)
+    }
+
+    private static func contextualReading(_ text: NSString, range: NSRange, surface: String,
+                                          candidates: Set<String>) -> String? {
+        let before = text.substring(to: range.location)
+            .components(separatedBy: CharacterSet(charactersIn: "。！？!?\n、，,"))
+            .last ?? ""
+        let patterns: [(String, String)]
+        if surface.hasPrefix("行") {
+            patterns = [("(?:駅|学校|病院|会社|公園|店|東京|京都|家|旅行|買い物)(?:へ|に)$", "い"),
+                        ("(?:会議|調査|試験|実験|検査|手術|練習|授業|選挙|式典|研究)を$", "おこな")]
+        } else if surface.hasPrefix("開") {
+            patterns = [("(?:扉|ドア|窓|門|蓋|ふた|店)が$", "あ"),
+                        ("(?:扉|ドア|窓|門|蓋|ふた|本|傘|会議|会|店|口|目)を$", "ひら"),
+                        ("(?:会議|会|店|花|花びら)が$", "ひら")]
+        } else {
+            return nil
+        }
+        let matches = patterns.filter { before.range(of: $0.0, options: .regularExpression) != nil }
+        guard matches.count == 1 else { return nil }
+        let possible = candidates.filter { $0.hasPrefix(matches[0].1) }
+        return possible.count == 1 ? possible.first : nil
+    }
+
+    private static func kanaAnnotation(for surface: String, reading: String, at offset: Int) -> (NSRange, String) {
+        // Visible okurigana already supplies this part of the pronunciation.
+        var base = surface[...]
+        var kana = reading[...]
+        while let first = base.first, first == kana.first {
+            base.removeFirst()
+            kana.removeFirst()
+        }
+        while let last = base.last, last == kana.last {
+            base.removeLast()
+            kana.removeLast()
+        }
+        let start = surface[..<base.startIndex].utf16.count
+        return (NSRange(location: offset + start, length: base.utf16.count), String(kana))
+    }
+
+    private func splitKanaAnnotation(_ range: NSRange, kana: String, source: NSString) -> [ReadingAnnotation] {
+        let base = source.substring(with: range)
+        guard NSMaxRange(range) < source.length,
+              source.substring(with: NSRange(location: NSMaxRange(range), length: 1))
+                .range(of: #"^[ぁ-ゖ]$"#, options: .regularExpression) != nil,
+              base.count == 2,
+              base.range(of: #"^[\p{Han}]{2}$"#, options: .regularExpression) != nil,
+              let first = base.first else {
+            return [ReadingAnnotation(range: range, kana: kana, saved: false)]
+        }
+        let candidates = Set(entries(String(first)).filter { $0.head == String(first) }.map(\.reading))
+            .filter { !$0.isEmpty && kana.hasPrefix($0) && $0.count < kana.count }
+        guard candidates.count == 1, let prefix = candidates.first else {
+            return [ReadingAnnotation(range: range, kana: kana, saved: false)]
+        }
+        let length = String(first).utf16.count
+        return [
+            ReadingAnnotation(range: NSRange(location: range.location, length: length), kana: prefix, saved: false),
+            ReadingAnnotation(range: NSRange(location: range.location + length, length: range.length - length),
+                              kana: String(kana.dropFirst(prefix.count)), saved: false)
+        ]
+    }
+
+    func readingAnnotations(_ text: String, tokens: [NSRange], saved: Set<String>,
+                            showKana: Bool) -> [ReadingAnnotation] {
+        guard !saved.isEmpty || showKana else { return [] }
+        let source = text as NSString
+        var annotations: [ReadingAnnotation] = []
+        var index = 0
+        while index < tokens.count {
+            var range = tokens[index]
+            // NaturalLanguage may split a single dictionary word such as 日本語.
+            // Prefer the longest adjacent kanji compound with an exact dictionary entry.
+            if source.substring(with: range).range(of: #"^[\p{Han}]+$"#, options: .regularExpression) != nil {
+                var last = index
+                var end = NSMaxRange(range)
+                for nextIndex in (index + 1)..<min(tokens.count, index + 4) {
+                    let next = tokens[nextIndex]
+                    guard next.location == end,
+                          source.substring(with: next).range(of: #"^[\p{Han}]+$"#, options: .regularExpression) != nil else { break }
+                    end = NSMaxRange(next)
+                    let candidate = NSRange(location: range.location, length: end - range.location)
+                    if entries(source.substring(with: candidate)).contains(where: { $0.head == source.substring(with: candidate) }) {
+                        last = nextIndex
+                        range = candidate
+                    }
+                }
+                index = last
+            }
+            let surface = source.substring(with: range)
+            let hasKanji = surface.range(of: #"\p{Han}"#, options: .regularExpression) != nil
+            let known = hasKanji ? entries(surface) : []
+            var marked = saved.contains(surface) || known.contains { saved.contains($0.head) }
+            var kanaRange = range
+            var kana = ""
+            if hasKanji {
+                // The tokenizer can split a stem and its endings across several adjacent tokens.
+                var spellings = [surface]
+                var spelling = surface
+                var end = NSMaxRange(range)
+                for next in tokens.dropFirst(index + 1).prefix(3) {
+                    guard next.location == end else { break }
+                    let ending = source.substring(with: next)
+                    guard ending.range(of: #"^[ぁ-ゖ]+$"#, options: .regularExpression) != nil else { break }
+                    spelling += ending
+                    spellings.append(spelling)
+                    end = NSMaxRange(next)
+                }
+                var resolved = false
+                for spelling in spellings.reversed() {
+                    let inflection = inflectedReading(for: spelling)
+                    guard !inflection.heads.isEmpty else { continue }
+                    marked = marked || !saved.isDisjoint(with: inflection.heads)
+                    let reading = inflection.readings.count == 1 ? inflection.readings.first
+                        : Self.contextualReading(source, range: range, surface: spelling, candidates: inflection.readings)
+                    if showKana, let reading {
+                        (kanaRange, kana) = Self.kanaAnnotation(for: spelling, reading: reading, at: range.location)
+                    }
+                    resolved = true
+                    break
+                }
+                if showKana, !resolved {
+                    let readings = Set(known.map(\.reading))
+                    let reading = readings.count == 1 ? readings.first
+                        : Self.contextualReading(source, range: range, surface: surface, candidates: readings)
+                    if let reading {
+                        (kanaRange, kana) = Self.kanaAnnotation(for: surface, reading: reading, at: range.location)
+                    }
+                }
+            }
+            if !kana.isEmpty, kanaRange.length > 0 {
+                annotations.append(contentsOf: splitKanaAnnotation(kanaRange, kana: kana, source: source))
+            }
+            if marked {
+                annotations.append(ReadingAnnotation(range: range, kana: "", saved: true))
+            }
+            index += 1
+        }
+        return annotations
+    }
 
     static func tokens(_ text: String) -> [NSRange] {
         let tokenizer = NLTokenizer(unit: .word)

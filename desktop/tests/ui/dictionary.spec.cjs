@@ -2,6 +2,7 @@ const { test, expect, _electron: electron } = require('@playwright/test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { defaults } = require('../../src/store.cjs');
 const { fixture } = require('../fixtures/mdx.cjs');
 const { yomitanFixture } = require('../fixtures/yomitan.cjs');
 
@@ -32,6 +33,9 @@ async function lookup(page, word) {
 for (const format of formats) test(`settings import, switch and remember ${format.name} (${format.extension})`, async () => {
   test.setTimeout(90000);
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'yomitoki-dictionary-'));
+  const initial = defaults();
+  initial.settings.showReadingKana = false;
+  fs.writeFileSync(path.join(folder, 'library.json'), JSON.stringify(initial));
   const file = path.join(folder, format.extension === 'zip' ? 'dictionary.zip' : '测试日汉词典.mdx');
   fs.writeFileSync(file, await format.bytes());
   const launch = () => electron.launch({

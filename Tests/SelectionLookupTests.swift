@@ -23,6 +23,24 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         CREATE TABLE entries(form TEXT, head TEXT, reading TEXT, meaning TEXT, pos TEXT, rank INTEGER);
         INSERT INTO entries VALUES('喫茶店','喫茶店','きっさてん','coffee shop','n',1);
         INSERT INTO entries VALUES('食べる','食べる','たべる','to eat','v1 vt',1);
+        INSERT INTO entries VALUES('来','来','らい','next','pref suf',1);
+        INSERT INTO entries VALUES('来た','来た','きた','it came','int',1);
+        INSERT INTO entries VALUES('来る','来る','くる','to come','vk vi',1);
+        INSERT INTO entries VALUES('来る','来る','きたる','to arrive','v5r vi',0);
+        INSERT INTO entries VALUES('歩く','歩く','あるく','to walk','v5k vi',1);
+        INSERT INTO entries VALUES('書く','書く','かく','to write','v5k vt',1);
+        INSERT INTO entries VALUES('読む','読む','よむ','to read','v5m vt',1);
+        INSERT INTO entries VALUES('取り出す','取り出す','とりだす','to take out','v5s vt',1);
+        INSERT INTO entries VALUES('行く','行く','いく','to go','v5k-s vi',1);
+        INSERT INTO entries VALUES('行う','行う','おこなう','to do','v5u vt',1);
+        INSERT INTO entries VALUES('日本','日本','にほん','Japan','n',1);
+        INSERT INTO entries VALUES('日本語','日本語','にほんご','Japanese','n',1);
+        INSERT INTO entries VALUES('開く','開く','あく','to open','v5k vi',1);
+        INSERT INTO entries VALUES('開く','開く','ひらく','to open','v5k vt',1);
+        INSERT INTO entries VALUES('雨','雨','あめ','rain','n',1);
+        INSERT INTO entries VALUES('雨上がり','雨上がり','あめあがり','after the rain','n',1);
+        INSERT INTO entries VALUES('注文','注文','ちゅうもん','to order','n vs vt',1);
+        INSERT INTO entries VALUES('来年','来年','らいねん','next year','n',1);
         INSERT INTO entries VALUES('微笑む','微笑む','ほほえむ','to smile','v5m vi',1);
         INSERT INTO entries VALUES('微笑','微笑','びしょう','smile','n vi vs',1);
         INSERT INTO entries VALUES('上手','上手','じょうず','skillful','adj-na adj-na',1);
@@ -35,6 +53,29 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         try require(status == SQLITE_OK, "Create dictionary fixture")
         try "喫茶店\t咖啡馆\n食べる\t吃\n".write(to: directory.appendingPathComponent("zh.tsv"), atomically: true, encoding: .utf8)
         let dictionary = Lexicon(resources: directory)
+        let readingCases = [
+            ("電車が来た。", "来", "き"), ("駅に来ない。", "来", "こ"), ("駅に来ました。", "来", "き"),
+            ("駅に来れば。", "来", "く"), ("来よう。", "来", "こ"), ("来られなかった。", "来", "こ"),
+            ("駅に行った。", "行", "い"), ("会議を行った。", "行", "おこな"),
+            ("扉が開く。", "開", "あ"), ("本を開く。", "開", "ひら"),
+            ("来年。", "来年", "らいねん"), ("日本語を勉強する。", "日本語", "にほんご"), ("食べた。", "食", "た"), ("歩いた。", "歩", "ある"),
+            ("書かなかった。", "書", "か"), ("読みました。", "読", "よ"), ("読んで。", "読", "よ"),
+            ("微笑んだ。", "微笑", "ほほえ"), ("取り出した。", "取り出", "とりだ")
+        ]
+        for (sentence, base, kana) in readingCases {
+            let range = (sentence as NSString).range(of: base)
+            let annotations = dictionary.readingAnnotations(sentence, tokens: Lexicon.tokens(sentence), saved: [], showKana: true)
+            try require(annotations.contains(ReadingAnnotation(range: range, kana: kana, saved: false)),
+                        "Surface-form reading must annotate \(base) as \(kana) in \(sentence)")
+        }
+        let rain = "雨上がり。"
+        let rainNotes = dictionary.readingAnnotations(rain, tokens: Lexicon.tokens(rain), saved: [], showKana: true)
+        try require(rainNotes.contains(ReadingAnnotation(range: NSRange(location: 0, length: 1), kana: "あめ", saved: false))
+                    && rainNotes.contains(ReadingAnnotation(range: NSRange(location: 1, length: 1), kana: "あ", saved: false)),
+                    "Compound readings align each supported reading to its kanji")
+        let ambiguous = "行った。"
+        try require(dictionary.readingAnnotations(ambiguous, tokens: Lexicon.tokens(ambiguous), saved: [], showKana: true).isEmpty,
+                    "Ambiguous verb spellings do not guess between 行く and 行う")
         let book = Book(name: "selection.txt", kind: "TXT", pages: ["☕️  喫茶店  でパンを食べた。雨の喫茶店に入った。", "次のページ。"])
         let text = book.pages[0] as NSString
 
@@ -60,6 +101,18 @@ private func require(_ condition: @autoclosure () -> Bool, _ message: String) th
         try require(clickedSmile?.definition.head == "微笑む" && clickedSmile?.occurrence.context.word == "微笑んだ",
                     "Automatic token lookup handles the split 微笑ん + だ too")
 
+        let orderBook = Book(name: "字幕.srt", kind: "SRT", pages: ["注文してくれりゃあ。"])
+        for surface in ["注文して", "注文した", "注文します", "注文しない"] {
+            let source = Book(name: "字幕.srt", kind: "SRT", pages: [surface + "ください。"])
+            let range = (source.pages[0] as NSString).range(of: surface)
+            let result = dictionary.lookup(book: source, page: 0, selection: range)
+            try require(result?.definition.head == "注文" && result?.definition.reading == "ちゅうもん"
+                        && result?.occurrence.context.word == surface, "Suru verb resolves nominal dictionary entry")
+        }
+        let orderRange = (orderBook.pages[0] as NSString).range(of: "注文")
+        let order = dictionary.lookup(book: orderBook, page: 0, at: orderRange.location, tokens: Lexicon.tokens(orderBook.pages[0]))
+        try require(order?.definition.head == "注文" && order?.occurrence.context.word == "注文して",
+                    "Single-click selects the suru verb including its inflection")
         let phrase = "雨の喫茶店"
         let phraseRange = text.range(of: phrase)
         let phraseLookup = dictionary.lookup(book: book, page: 0, selection: phraseRange)

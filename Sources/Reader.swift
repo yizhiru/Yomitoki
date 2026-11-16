@@ -64,6 +64,8 @@ struct ReaderView: View {
     @ViewState private var inspectorOverride: Bool?
     @AppStorage("definitionFontSize") private var definitionFontSize = AppTheme.defaultDefinitionSize
     @AppStorage("singleClickLookupEnabled") private var singleClickLookupEnabled = false
+    @AppStorage("highlightSavedWords") private var highlightSavedWords = true
+    @AppStorage("showReadingKana") private var showReadingKana = true
 
     var body: some View {
         GeometryReader { geometry in
@@ -153,7 +155,7 @@ struct ReaderView: View {
                 ContentUnavailableView {
                     Label("书架为空", systemImage: "books.vertical")
                 } actions: {
-                    Button("导入书籍", action: state.importBook)
+                    Button("导入文件", action: state.importBook)
                         .buttonStyle(AppActionButtonStyle(prominent: true)).disabled(state.importing)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -193,10 +195,10 @@ struct ReaderView: View {
                     HStack(spacing: 10) {
                         if state.importing { ProgressView().controlSize(.small).frame(width: 20) }
                         else { Image(systemName: "plus").frame(width: 20) }
-                        Text(state.importing ? "读取中…" : "导入书籍")
+                        Text(state.importing ? "读取中…" : "导入文件")
                     }.font(.system(size: 16, weight: .medium))
                 }.buttonStyle(SidebarButtonStyle(emphasized: true))
-                    .help("导入 PDF、EPUB 或 MOBI 文件").accessibilityLabel("导入文件").disabled(state.importing)
+                    .help("导入 PDF、EPUB、MOBI、SRT、TXT 或 MD 文件").accessibilityLabel("导入文件").disabled(state.importing)
                 if state.importing {
                     Button(action: state.cancelImport) {
                         Label("取消导入", systemImage: "xmark").font(.system(size: 16))
@@ -268,7 +270,7 @@ struct ReaderView: View {
         }
     }
 
-    private func readingText(size: CGSize? = nil) -> ReadingText {
+    private func readingText(size: CGSize? = nil, horizontalInset: CGFloat = 4) -> ReadingText {
         let match = readingMatchIndex.map { readingMatches[$0] }
         let searchHighlight = showingReadingSearch && match?.page == state.book.page ? match?.range : nil
         return ReadingText(bodyText: state.book.pages[state.book.page],
@@ -285,7 +287,9 @@ struct ReaderView: View {
                     searchHighlight: searchHighlight, pageSize: size,
                     readingOffset: state.readingOffset, onPagination: { value in
                         if value.revision == state.revision { pagination = value }
-                    }, onPageTurn: turnPage, onReadingProgress: state.recordReadingProgress)
+                    }, onPageTurn: turnPage, onReadingProgress: state.recordReadingProgress,
+                    annotations: state.readingAnnotations(showSaved: highlightSavedWords, showKana: showReadingKana),
+                    horizontalInset: horizontalInset)
     }
 
     private func findInBook() {
@@ -415,17 +419,22 @@ struct ReaderView: View {
                     Text(state.book.title)
                         .font(.system(size: 26, weight: .medium)).lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true).padding(.bottom, 9)
+                        .frame(maxWidth: AppTheme.readingMeasure, alignment: .leading)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, compactControls ? 20 : 30)
                 }
-                Group {
-                    if paginated {
-                        GeometryReader { geometry in readingText(size: geometry.size) }
-                    } else {
-                        readingText()
+                if paginated {
+                    GeometryReader { geometry in readingText(size: geometry.size) }
+                        .frame(maxWidth: AppTheme.readingMeasure)
+                        .padding(.horizontal, compactControls ? 20 : 30)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    GeometryReader { geometry in
+                        let inset = max(compactControls ? 20 : 30, (geometry.size.width - AppTheme.readingMeasure) / 2)
+                        readingText(horizontalInset: inset)
                     }
-                }.padding(.leading, -8)
-            }.frame(maxWidth: AppTheme.readingMeasure)
-                .padding(.horizontal, compactControls ? 20 : 30)
-                .padding(.top, AppTheme.readingTopInset).frame(maxWidth: .infinity)
+                }
+            }.padding(.top, AppTheme.readingTopInset).frame(maxWidth: .infinity)
             Divider().overlay(rule)
             HStack {
                 pageButton("上一\(paginated ? "页" : state.book.unit)", "chevron.left",
@@ -1325,6 +1334,8 @@ struct DefinitionSettingsView: View {
     @ViewState private var saved = false
     @AppStorage("definitionFontSize") private var definitionFontSize = AppTheme.defaultDefinitionSize
     @AppStorage("singleClickLookupEnabled") private var singleClickLookupEnabled = false
+    @AppStorage("highlightSavedWords") private var highlightSavedWords = true
+    @AppStorage("showReadingKana") private var showReadingKana = true
 
     private var apiKey: Binding<String> {
         Binding(get: { keys[draft.provider] ?? "" }, set: { keys[draft.provider] = $0 })
@@ -1337,6 +1348,8 @@ struct DefinitionSettingsView: View {
             Form {
                 if tab == .reading {
                 Section("阅读显示") {
+                    Toggle("高亮生词", isOn: $highlightSavedWords)
+                    Toggle("显示汉字假名", isOn: $showReadingKana)
                     Toggle("单击自动查词", isOn: $singleClickLookupEnabled)
                     Text("关闭后，选中文字并点击「词典释义」或「大模型释义」才会查询。按 ⌘C 复制。")
                         .font(AppTheme.captionFont).foregroundStyle(muted)

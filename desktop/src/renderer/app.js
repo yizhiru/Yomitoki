@@ -44,6 +44,76 @@ $('toggle-detail').addEventListener('click', () => {
   detailOverride = $('detail').hidden;
   updateDetailVisibility();
 });
+let annotationKey, readerSegments = [];
+function renderReadingText(text, annotations = []) {
+  const fragment = document.createDocumentFragment();
+  readerSegments = [];
+  const append = (parent, start, end) => {
+    if (start === end) return;
+    const node = document.createTextNode(text.slice(start, end));
+    parent.append(node);
+    readerSegments.push({ node, start, end });
+  };
+  let offset = 0;
+  for (const annotation of annotations) {
+    const { start, end, kana, saved } = annotation;
+    append(fragment, offset, start);
+    const word = element(kana ? 'ruby' : 'span', undefined, saved ? 'saved-word' : undefined);
+    append(word, start, end);
+    if (kana) word.append(element('rt', kana));
+    fragment.append(word);
+    offset = end;
+  }
+  append(fragment, offset, text.length);
+  $('reader').replaceChildren(fragment);
+}
+function refreshReadingAnnotations(book) {
+  if (!book) { annotationKey = undefined; return; }
+  const { highlightSavedWords = true, showReadingKana = true } = state.settings;
+  const saved = highlightSavedWords ? state.words.map(word => word.definition.head) : [];
+  const key = JSON.stringify([book.id, book.page, saved, showReadingKana]);
+  if (annotationKey === key) return;
+  annotationKey = key;
+  if (!saved.length && !showReadingKana && !$('reader').querySelector('ruby, .saved-word')) return;
+  const payload = { bookID: book.id, page: book.page };
+  attempt(async () => {
+    const annotations = await api.call('reading-annotations', payload);
+    if (annotationKey !== key) return;
+    captureReadingScroll();
+    const selected = readerSelection()?.payload;
+    renderReadingText(book.pages[book.page], annotations);
+    if (selected) {
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(sourceRange(selected.start, selected.end));
+    }
+    const match = readingMatches[matchIndex];
+    if (match?.page === book.page) CSS.highlights.set('reading-match', new Highlight(sourceRange(match.start, match.end)));
+    restoreReadingPosition = true;
+    layoutReadingPages();
+  });
+}
+function sourcePoint(offset, end) {
+  let low = 0, high = readerSegments.length - 1;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    const boundary = readerSegments[middle].end;
+    if (boundary < offset || (!end && boundary === offset)) low = middle + 1;
+    else high = middle;
+  }
+  const segment = readerSegments[low];
+  return [segment.node, offset - segment.start];
+}
+function sourceRange(start, end) {
+  const range = document.createRange();
+  range.setStart(...sourcePoint(start, false));
+  range.setEnd(...sourcePoint(end, true));
+  return range;
+}
+function originalLength(range) {
+  const contents = range.cloneContents();
+  for (const rt of contents.querySelectorAll('rt')) rt.remove();
+  return contents.textContent.length;
+}
 function sync(next) {
   if (!next) return;
   state = next; const book = currentBook();
@@ -62,7 +132,7 @@ function sync(next) {
   const section = book ? `${book.id}:${book.page}` : null;
   if (readingSection !== section) {
     readingSection = section;
-    $('reader').textContent = book?.pages[book.page] ?? '';
+    renderReadingText(book?.pages[book.page] ?? '');
     readingOffset = book?.readingOffset ?? 0;
     restoreReadingPosition = Boolean(book);
   }
@@ -93,6 +163,7 @@ function sync(next) {
     else tab.removeAttribute('aria-current');
   }
   applySettings();
+  refreshReadingAnnotations(book);
   if (view === 'notebook') renderWords();
   if (showingRecords) renderRecords();
 }
@@ -104,13 +175,9 @@ function applySettings() {
   layoutReadingPages();
 }
 function characterBounds(offset) {
-  const text = $('reader').firstChild;
-  if (!text?.length) return null;
-  const range = document.createRange();
-  const start = Math.max(0, Math.min(offset, text.length - 1));
-  range.setStart(text, start);
-  range.setEnd(text, start + 1);
-  return range.getBoundingClientRect();
+  if (!readerSegments.length) return null;
+  const start = Math.max(0, Math.min(offset, readerSegments.at(-1).end - 1));
+  return sourceRange(start, start + 1).getBoundingClientRect();
 }
 function columnAt(offset, width) {
   const bounds = characterBounds(offset);
@@ -243,10 +310,7 @@ async function jumpToMatch(index) {
     await navigate(currentBook().id, match.page, match.start);
     if (readingMatches[index] !== match || !readingSearchOpen || view !== 'reading') return;
     matchIndex = index;
-    const range = document.createRange();
-    const text = $('reader').firstChild;
-    range.setStart(text, match.start);
-    range.setEnd(text, match.end);
+    const range = sourceRange(match.start, match.end);
     CSS.highlights.set('reading-match', new Highlight(range));
     if (currentBook().kind !== 'EPUB') {
       const viewport = $('reading-scroll');
@@ -291,7 +355,7 @@ async function importBook() {
     const next = await api.call('import');
     if (next) { cancelQuery(); view = 'reading'; selection = null; readingOffset = 0; clearDetail(); sync(next); }
   } finally {
-    importing = false; $('import').disabled = false; $('import').textContent = '导入书籍'; $('cancel-import').hidden = true;
+    importing = false; $('import').disabled = false; $('import').textContent = '导入文件'; $('cancel-import').hidden = true;
   }
 }
 function section(title, text, className, heading = 'h3') {
@@ -728,7 +792,10 @@ function readerSelection() {
       !reader.contains(browserSelection.anchorNode) || !reader.contains(browserSelection.focusNode)) return null;
   const range = browserSelection.getRangeAt(0); const prefix = range.cloneRange();
   prefix.selectNodeContents(reader); prefix.setEnd(range.startContainer, range.startOffset);
-  const start = prefix.toString().length, end = start + range.toString().length;
+  const start = originalLength(prefix);
+  prefix.setEnd(range.endContainer, range.endOffset);
+  const end = originalLength(prefix);
+  if (end <= start) return null;
   return { range, payload: selectionPayload(start, end) };
 }
 let selectionTimer, selectionRequest = 0;
@@ -794,13 +861,22 @@ $('reader').addEventListener('click', event => attempt(async () => {
   const caret = document.caretRangeFromPoint(event.clientX, event.clientY);
   if (!caret || !$('reader').contains(caret.startContainer)) return;
   const prefix = caret.cloneRange(); prefix.selectNodeContents($('reader')); prefix.setEnd(caret.startContainer, caret.startOffset);
-  const word = await api.call('word-at', { offset: prefix.toString().length });
+  const word = await api.call('word-at', { offset: originalLength(prefix) });
   if (word && currentBook()) await runAction('dictionary', false, selectionPayload(word.start, word.end));
 }));
+document.addEventListener('copy', event => {
+  const selected = readerSelection();
+  if (!selected || !$('reader').querySelector('ruby') || !event.clipboardData) return;
+  const { page, start, end } = selected.payload;
+  event.clipboardData.setData('text/plain', currentBook().pages[page].slice(start, end));
+  event.preventDefault();
+});
 async function openSettings() {
   sync(await api.call('state'));
   const settings = state.settings;
   $('single-click').checked = settings.singleClick;
+  $('highlight-saved').checked = settings.highlightSavedWords ?? true;
+  $('reading-kana').checked = settings.showReadingKana ?? true;
   $('font-size').value = settings.fontSize; $('font-value').value = settings.fontSize;
   $('definition-size').value = settings.definitionSize; $('definition-value').value = settings.definitionSize;
   $('provider').value = settings.provider; $('api-url').value = settings.url; $('model-name').value = settings.model;
@@ -858,6 +934,9 @@ $('detect-gpu').addEventListener('click', () => attempt(async () => {
 for (const [id, key, output] of [['font-size', 'fontSize', 'font-value'], ['definition-size', 'definitionSize', 'definition-value']]) {
   $(id).addEventListener('input', () => { state.settings[key] = Number($(id).value); $(output).value = $(id).value; applySettings(); });
   $(id).addEventListener('change', () => attempt(async () => sync(await api.call('settings', { [key]: Number($(id).value) }))));
+}
+for (const [id, key] of [['highlight-saved', 'highlightSavedWords'], ['reading-kana', 'showReadingKana']]) {
+  $(id).addEventListener('change', () => attempt(async () => sync(await api.call('settings', { [key]: $(id).checked }))));
 }
 $('single-click').addEventListener('change', () => attempt(async () => sync(await api.call('settings', { singleClick: $('single-click').checked }))));
 $('provider').addEventListener('change', () => { if ($('provider').value === 'deepseek') { $('api-url').value = 'https://api.deepseek.com'; $('model-name').value = 'deepseek-flash'; } });

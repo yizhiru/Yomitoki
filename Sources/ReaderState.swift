@@ -134,6 +134,18 @@ import UniformTypeIdentifiers
     }
     var book: Book { activeBook ?? .sample }
     var selectedSavedWord: SavedWord? { library.words.first { $0.id == selectedWord } }
+    private var annotationCache: (revision: UUID, saved: Set<String>, kana: Bool, values: [ReadingAnnotation])?
+
+    func readingAnnotations(showSaved: Bool, showKana: Bool) -> [ReadingAnnotation] {
+        let saved = showSaved ? Set(library.words.map { $0.definition.head }) : []
+        if let cache = annotationCache, cache.revision == revision, cache.saved == saved, cache.kana == showKana {
+            return cache.values
+        }
+        let values = dictionary.readingAnnotations(book.pages[book.page], tokens: tokens, saved: saved, showKana: showKana)
+        annotationCache = (revision, saved, showKana, values)
+        return values
+    }
+
     func refreshTokens() {
         textSelection = nil
         noteSelection = nil
@@ -566,7 +578,7 @@ import UniformTypeIdentifiers
         let panel = NSOpenPanel()
         panel.title = "导入阅读文件"
         panel.prompt = "导入"
-        panel.allowedContentTypes = ["pdf", "epub", "mobi"].compactMap { UTType(filenameExtension: $0, conformingTo: .data) }
+        panel.allowedContentTypes = ["pdf", "epub", "mobi", "srt", "txt", "md"].compactMap { UTType(filenameExtension: $0, conformingTo: .data) }
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         importBook(url)

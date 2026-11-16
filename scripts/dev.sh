@@ -12,6 +12,8 @@ if [[ ! -d "$app" ]]; then
 fi
 
 stage="$(mktemp -d "$PWD/.build/dev/compile.XXXXXX")"
+fingerprint_file="$PWD/.build/dev/source-fingerprint"
+signing_identity="${CODE_SIGN_IDENTITY:--}"
 preview_pid=
 
 stop_preview() {
@@ -41,24 +43,36 @@ install_preview() {
     python3 scripts/bundle_ebooks.py "$app"
     cp Resources/zh.tsv "$app/Contents/Resources/"
     mv "$stage/Yomitoki" "$app/Contents/MacOS/Yomitoki"
-    codesign --force --sign - "$app"
+    codesign --force --sign "$signing_identity" "$app"
 }
 
 source_fingerprint() {
     # Include file contents and names so atomic saves, additions and removals are detected.
     find Sources -maxdepth 1 -type f -name '*.swift' -exec shasum -a 256 {} + | LC_ALL=C sort
+    printf '%s\n' "$signing_identity"
+    shasum -a 256 scripts/dev.sh scripts/bundle_ebooks.py Resources/zh.tsv
+    find desktop/src/ebook-import desktop/src/vendor Resources/Ebook -type f -exec shasum -a 256 {} + | LC_ALL=C sort
 }
 
 export YOMITOKI_DATA_DIRECTORY="${YOMITOKI_DATA_DIRECTORY:-$PWD/.build/dev/data}"
 if [[ "${1:-}" == "--build-only" ]]; then
-    compile_preview
-    install_preview
+    current="$(source_fingerprint)"
+    if [[ ! -f "$fingerprint_file" || "$(cat "$fingerprint_file")" != "$current" ]] ||
+       ! codesign --verify --strict "$app" >/dev/null 2>&1; then
+        compile_preview
+        install_preview
+        printf '%s\n' "$current" > "$fingerprint_file"
+    fi
     printf '已更新本地预览 %s\n' "$app"
     exit 0
 fi
 
 printf '正在监听 Swift 源码。保存后自动重新编译，按 Ctrl+C 停止。\n'
 previous=
+failed=
+if [[ -f "$fingerprint_file" ]] && codesign --verify --strict "$app" >/dev/null 2>&1; then
+    previous="$(cat "$fingerprint_file")"
+fi
 while true; do
     if [[ -n "$preview_pid" ]] && ! kill -0 "$preview_pid" 2>/dev/null; then
         exit 0
@@ -67,8 +81,15 @@ while true; do
         sleep 1
         continue
     fi
-    if [[ "$current" != "$previous" ]]; then
-        previous="$current"
+    if [[ "$current" == "$failed" ]]; then
+        sleep 1
+        continue
+    fi
+    if [[ "$current" == "$previous" && -z "$preview_pid" ]]; then
+        "$app/Contents/MacOS/Yomitoki" &
+        preview_pid=$!
+        printf '预览已启动。\n'
+    elif [[ "$current" != "$previous" ]]; then
         printf '正在编译预览…\n'
         if compile_preview; then
             if [[ -n "$preview_pid" ]] && ! kill -0 "$preview_pid" 2>/dev/null; then
@@ -76,10 +97,14 @@ while true; do
             fi
             stop_preview
             install_preview
+            previous="$current"
+            failed=
+            printf '%s\n' "$current" > "$fingerprint_file"
             "$app/Contents/MacOS/Yomitoki" &
             preview_pid=$!
             printf '预览已启动。\n'
         else
+            failed="$current"
             printf '编译失败。保存修正后会自动重试。\n' >&2
         fi
     fi
