@@ -126,6 +126,15 @@
       <div class="button-row"><button type="button" id="cancel-book-info">取消</button><button class="primary" id="save-book-info">保存</button></div>
     </form>
   </dialog>
+  <dialog id="reading-edit" aria-labelledby="reading-title">
+    <form id="reading-form">
+      <div class="dialog-heading"><h2 id="reading-title">校正读音</h2></div>
+      <p id="reading-surface" lang="ja" class="note-excerpt"></p>
+      <label>假名读音<input id="reading-value" lang="ja" required maxlength="128" pattern="[ぁ-ゖァ-ヺゝゞヽヾー]+"></label>
+      <label class="toggle"><input id="reading-book-scope" type="checkbox">本书相同词沿用</label>
+      <div class="button-row"><button type="button" id="reading-cancel">取消</button><button class="primary">保存</button></div>
+    </form>
+  </dialog>
   <dialog id="note-dialog" aria-labelledby="note-dialog-title">
     <form id="note-form">
       <div class="dialog-heading"><h2 id="note-dialog-title">笔记</h2></div>

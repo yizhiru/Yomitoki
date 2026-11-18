@@ -50,7 +50,7 @@ async function readBook(file, { signal, parent, extractEbook } = {}) {
   const kind = path.extname(file).slice(1).toUpperCase();
   if (!['PDF', 'EPUB', 'MOBI', 'TXT', 'MD', 'SRT'].includes(kind)) throw new Error('请选择 PDF、EPUB、MOBI、SRT、TXT 或 MD 文件。');
   if ((await fs.stat(file)).size > 300_000_000) throw new Error('文件超过 300 MB，请先拆分。');
-  let pages, metadata;
+  let pages, metadata, sourceReadings;
   if (kind === 'PDF') {
     const canvas = require('@napi-rs/canvas');
     globalThis.DOMMatrix ||= canvas.DOMMatrix;
@@ -85,10 +85,24 @@ async function readBook(file, { signal, parent, extractEbook } = {}) {
     const ebook = await extract(file, { signal, parent });
     pages = paginate(ebook.sections.join('\n\n'));
     metadata = bookMetadata(ebook.metadata);
+    if (ebook.ruby?.length) {
+      sourceReadings = pages.map(() => []);
+      let ordinal = 0, index = 0;
+      pages.forEach((text, page) => {
+        for (let start = 0; start < text.length && index < ebook.ruby.length; start++) {
+          if (/\s/.test(text[start])) continue;
+          while (index < ebook.ruby.length && ebook.ruby[index].at === ordinal) {
+            const {surface, kana} = ebook.ruby[index++];
+            if (text.startsWith(surface, start)) sourceReadings[page].push({start, surface, kana});
+          }
+          ordinal++;
+        }
+      });
+    }
   }
   signal?.throwIfAborted();
   if (!pages.some(page => page.trim())) throw new Error('没有可读取的文字。扫描 PDF 需要先进行 OCR。');
   if (pages.join('').length > 10_000_000) throw new Error('提取文字过多，请拆分文档。');
-  return { id: randomUUID(), name: path.basename(file), kind, pages, page: 0, metadata };
+  return { id: randomUUID(), name: path.basename(file), kind, pages, page: 0, metadata, sourceReadings };
 }
 module.exports = { paginate, readBook, bookMetadata };

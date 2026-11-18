@@ -28,6 +28,8 @@ test('built-in EPUB/MOBI import, limits, cancellation and persisted reading work
         expect(state.books.length, value.id).toBe(before + 1);
         const book = state.books.find(book => book.id === state.current); expect(book.kind).toBe(value.kind);
         if (book.name === '日本語の本 空白.epub') {
+          const start = book.pages[0].indexOf('喫茶店');
+          expect(book.sourceReadings[0]).toContainEqual({start, surface:'喫茶店',kana:'きっさてん'});
           expect(book.metadata.title).toBe('epub3-japanese-ruby');
           await expect(page.locator('#books .active')).toHaveText('epub3-japanese-ruby');
         }

@@ -83,6 +83,8 @@ def bundle_runtime(backend, licence):
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
+    from bundle_readings import bundle
+    bundle(OUTPUT)
     CACHE.mkdir(parents=True, exist_ok=True)
     database = CACHE / ("jmdict-" + DICTIONARY_SHA + ".sqlite")
     if not database.exists():

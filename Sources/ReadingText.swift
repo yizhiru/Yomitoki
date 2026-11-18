@@ -4,6 +4,8 @@ import SwiftUI
 /// Keeps native selection, dragging, contextual menus, and copy behavior intact.
 final class ReadingTextView: NSTextView {
     static let kanaAttribute = NSAttributedString.Key("ReadingKana")
+    static let kanaStart = NSAttributedString.Key("ReadingKanaStart")
+    var sourceOffset = 0
     var showsKana = false
 
     override func draw(_ dirtyRect: NSRect) {
@@ -20,15 +22,15 @@ final class ReadingTextView: NSTextView {
             width: container.size.width, height: max(1, drawingBounds.height + textContainerInset.height)
         ), in: container)
         let visible = layout.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
-        storage.enumerateAttribute(Self.kanaAttribute, in: visible, options: [.longestEffectiveRangeNotRequired]) { value, range, _ in
-            guard let kana = value as? String, !kana.isEmpty else { return }
+        storage.enumerateAttribute(Self.kanaStart, in: visible, options: [.longestEffectiveRangeNotRequired]) { value, range, _ in
+            guard let start = value as? Int, start >= sourceOffset else { return }
             var range = range
-            _ = storage.attribute(Self.kanaAttribute, at: range.location, effectiveRange: &range)
+            _ = storage.attribute(Self.kanaStart, at: range.location, effectiveRange: &range)
+            guard let kana = storage.attribute(Self.kanaAttribute, at: range.location, effectiveRange: nil) as? String else { return }
             let glyphRange = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
             var line = NSRange()
             _ = layout.lineFragmentRect(forGlyphAt: glyphRange.location, effectiveRange: &line)
-            guard NSMaxRange(glyphRange) <= NSMaxRange(line) else { return }
-            let bounds = layout.boundingRect(forGlyphRange: glyphRange, in: container)
+            let bounds = layout.boundingRect(forGlyphRange: NSIntersectionRange(glyphRange, line), in: container)
             let baseSize = (storage.attribute(.font, at: range.location, effectiveRange: nil) as? NSFont)?.pointSize ?? 26
             let reading = kana as NSString
             var attributes: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: baseSize * 0.47),
@@ -121,6 +123,7 @@ struct ReadingText: NSViewRepresentable {
     let selectionLevel: (NSRange) -> TranslationSelection.Level?
     let onSentenceAnalysis: (NSRange) -> Void
     var onModelChat: (NSRange) -> Void = { _ in }
+    var onEditReading: ((NSRange) -> Void)?
     var searchHighlight: NSRange?
     var pageSize: CGSize?
     var readingOffset = 0
@@ -131,12 +134,23 @@ struct ReadingText: NSViewRepresentable {
     var annotations: [ReadingAnnotation] = []
     var horizontalInset: CGFloat = 4
 
+    final class RubyLineBreaks: NSObject, NSLayoutManagerDelegate {
+        static let shared = RubyLineBreaks()
+        func layoutManager(_ layoutManager: NSLayoutManager, shouldBreakLineByWordBeforeCharacterAt index: Int) -> Bool {
+            guard let storage = layoutManager.textStorage, index < storage.length,
+                  let group = storage.attribute(ReadingTextView.kanaStart, at: index, effectiveRange: nil) as? Int,
+                  index > 0 else { return true }
+            return storage.attribute(ReadingTextView.kanaStart, at: index-1, effectiveRange: nil) as? Int != group
+        }
+    }
+
     static func pageStarts(for text: NSAttributedString, size: CGSize, verticalInset: CGFloat = 12) -> [Int] {
         let storage = NSTextStorage(attributedString: text)
         let layout = NSLayoutManager()
         let container = NSTextContainer(containerSize: CGSize(width: max(11, size.width - 8),
                                                               height: .greatestFiniteMagnitude))
         layout.addTextContainer(container)
+        layout.delegate = RubyLineBreaks.shared
         storage.addLayoutManager(layout)
         let glyphs = layout.glyphRange(for: container)
         var starts = [0]
@@ -160,6 +174,7 @@ struct ReadingText: NSViewRepresentable {
         var selectionLevel: (NSRange) -> TranslationSelection.Level? = { _ in nil }
         var onSentenceAnalysis: (NSRange) -> Void = { _ in }
         var onModelChat: (NSRange) -> Void = { _ in }
+        var onEditReading: ((NSRange) -> Void)?
         var updating = false
         var revision: UUID?
         var fontSize: CGFloat = 0
@@ -310,7 +325,13 @@ struct ReadingText: NSViewRepresentable {
                 guard !rect.isNull, !rect.isEmpty else { return }
                 let screenRect = window.convertToScreen(view.convert(rect, to: nil))
                 let frame = window.screen?.visibleFrame ?? screenRect.insetBy(dx: -400, dy: -200)
-                let buttons = (self.selectionLevel(range)?.actions ?? []).map { self.button(for: $0) }
+                var buttons = (self.selectionLevel(range)?.actions ?? []).map { self.button(for: $0) }
+                let surface = (view.string as NSString).substring(with: range)
+                if self.onEditReading != nil, range.length <= 80,
+                   surface.range(of: #"\p{Han}"#, options: .regularExpression) != nil,
+                   surface.range(of: #"[\s。！？、]"#, options: .regularExpression) == nil {
+                    buttons.append(self.button("校正读音", symbol: "pencil", action: #selector(self.editReading)))
+                }
                 guard !buttons.isEmpty else { return }
                 let panelWidth = max(140, CGFloat(buttons.count) * 116 + 12)
                 let panel = SelectionActionsPanel(contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 44),
@@ -386,6 +407,11 @@ struct ReadingText: NSViewRepresentable {
             selectionLevel(range)?.actions.contains(action) == true
         }
 
+        @objc private func editReading() {
+            guard let range = actionRange else { return }
+            dismissActions()
+            onEditReading?(range)
+        }
         @objc private func defineSelection() {
             guard let range = actionRange, permits(.dictionary, at: range) else { return }
             dismissActions()
@@ -449,6 +475,7 @@ struct ReadingText: NSViewRepresentable {
         view.textContainer?.widthTracksTextView = true
         view.textContainerInset = NSSize(width: 4, height: 12)
         view.delegate = context.coordinator
+        view.layoutManager?.delegate = RubyLineBreaks.shared
         view.setAccessibilityLabel("日语正文，双击或拖选文字后可复制、查释义或与大模型对话")
         scroll.documentView = view
         context.coordinator.observeSelection(in: view, scroll: scroll)
@@ -480,7 +507,7 @@ struct ReadingText: NSViewRepresentable {
                 attributes: [.font: font, .foregroundColor: AppTheme.textColor, .paragraphStyle: paragraph])
             for annotation in annotations {
                 if !annotation.kana.isEmpty {
-                    text.addAttribute(ReadingTextView.kanaAttribute, value: annotation.kana, range: annotation.range)
+                    text.addAttributes([ReadingTextView.kanaAttribute: annotation.kana, ReadingTextView.kanaStart: annotation.range.location], range: annotation.range)
                 }
                 if annotation.saved {
                     text.addAttributes([.underlineStyle: NSUnderlineStyle.single.rawValue,
@@ -499,6 +526,7 @@ struct ReadingText: NSViewRepresentable {
         let start = pageSize == nil ? 0 : starts[index]
         let next = pageSize != nil && index + 1 < starts.count ? starts[index + 1] : nil
         let visible = NSRange(location: start, length: (next ?? coordinator.attributedText.length) - start)
+        view.sourceOffset = start
         let changedSlice = coordinator.visibleRange != visible
         coordinator.pageSize = pageSize
         coordinator.visibleRange = visible
@@ -522,6 +550,7 @@ struct ReadingText: NSViewRepresentable {
         coordinator.onSelectionChange = { range, hasLetters in
             onSelectionChange(range.map(sourceRange), hasLetters)
         }
+        coordinator.onEditReading = onEditReading.map { edit in { edit(sourceRange($0)) } }
         coordinator.onDictionaryLookup = { onDictionaryLookup(sourceRange($0)) }
         coordinator.onModelLookup = { onModelLookup(sourceRange($0)) }
         coordinator.onTranslation = { onTranslation(sourceRange($0)) }

@@ -2,6 +2,30 @@ import AppKit
 import Combine
 import UniformTypeIdentifiers
 
+private actor SudachiReader {
+    let executable: URL
+    init(resources: URL) { executable = resources.appendingPathComponent("sudachi-reader/sudachi-reader") }
+    func read(_ text: String) -> [BookReading]? {
+        guard !Task.isCancelled, FileManager.default.isExecutableFile(atPath: executable.path) else { return nil }
+        let process = Process(), input = Pipe(), output = Pipe()
+        process.executableURL = executable
+        process.standardInput = input
+        process.standardOutput = output
+        do {
+            try process.run()
+            let timeout = DispatchWorkItem { if process.isRunning { process.terminate() } }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 20, execute: timeout)
+            defer { timeout.cancel(); if process.isRunning { process.terminate() } }
+            try input.fileHandleForWriting.write(contentsOf: Data(text.utf8))
+            try input.fileHandleForWriting.close()
+            let data = try output.fileHandleForReading.readToEnd() ?? Data()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            return try JSONDecoder().decode([BookReading].self, from: data)
+        } catch { return nil }
+    }
+}
+
 @MainActor final class ReaderState: ObservableObject {
     @Published private(set) var library: LibraryData
     @Published var lookup: Lookup?
@@ -48,6 +72,9 @@ import UniformTypeIdentifiers
     @Published private(set) var dictionaryMessage: String?
     private let dictionaryFiles: ImportedDictionaryFiles
     private var importedDictionary: ImportedDictionaryIndex?
+    private let sudachi: SudachiReader
+    private var automaticReadings: (revision: UUID, notes: [BookReading])?
+    @Published private(set) var readingGeneration = 0
     let dictionary: Lexicon
     let preferences: DefinitionPreferences
     let translation: LocalTranslation
@@ -96,6 +123,7 @@ import UniformTypeIdentifiers
         } else {
             library = .initial
         }
+        sudachi = SudachiReader(resources: resources ?? Bundle.main.resourceURL!)
         dictionary = Lexicon(resources: resources ?? Bundle.main.resourceURL!)
         definitionResolver = DefinitionResolver(path: directory.appendingPathComponent("definitions.json"), dictionary: dictionary)
         let normalized = dictionary.normalizedWords(library.words)
@@ -141,9 +169,78 @@ import UniformTypeIdentifiers
         if let cache = annotationCache, cache.revision == revision, cache.saved == saved, cache.kana == showKana {
             return cache.values
         }
-        let values = dictionary.readingAnnotations(book.pages[book.page], tokens: tokens, saved: saved, showKana: showKana)
+        let text = book.pages[book.page] as NSString
+        let auto = automaticReadings.flatMap { $0.revision == revision ? $0.notes : nil }
+        let legacy = (showKana && auto == nil) || !saved.isEmpty
+            ? dictionary.readingAnnotations(text as String, tokens: tokens, saved: saved, showKana: showKana && auto == nil) : []
+        var values = legacy.filter(\.saved)
+        if showKana {
+            var occupied = IndexSet()
+            func add(_ note: BookReading) {
+                let length = note.surface.utf16.count
+                guard length > 0, note.start >= 0, note.start <= text.length - length else { return }
+                let span = note.start..<(note.start + length)
+                guard !occupied.intersects(integersIn: span), text.substring(with: note.range) == note.surface else { return }
+                occupied.insert(integersIn: span)
+                values.append(ReadingAnnotation(range: note.range, kana: note.kana, saved: false))
+            }
+            (book.localReadings?[book.page] ?? []).forEach(add)
+            if let rules = book.bookReadings, !rules.isEmpty {
+                let starts = Set(tokens.map(\.location)), ends = Set(tokens.map(NSMaxRange))
+                for (surface, kana) in rules.sorted(by: { $0.key.utf16.count > $1.key.utf16.count }) where !surface.isEmpty {
+                    var pos = 0
+                    while pos < text.length {
+                        let r = text.range(of: surface, options: .literal, range: NSRange(location: pos, length: text.length-pos))
+                        guard r.location != NSNotFound else { break }
+                        pos = NSMaxRange(r)
+                        if starts.contains(r.location), ends.contains(pos) {
+                            add(BookReading(start: r.location, surface: surface, kana: kana))
+                        }
+                    }
+                }
+            }
+            if let source = book.sourceReadings, source.indices.contains(book.page) { source[book.page].forEach(add) }
+            if let auto { auto.forEach(add) }
+            else {
+                for r in legacy where !r.kana.isEmpty {
+                    add(BookReading(start: r.range.location, surface: text.substring(with: r.range), kana: r.kana))
+                }
+            }
+        }
         annotationCache = (revision, saved, showKana, values)
         return values
+    }
+
+    func loadAutomaticReadings() async {
+        let id = revision
+        guard activeBook != nil, automaticReadings?.revision != id,
+              let notes = await sudachi.read(book.pages[book.page]),
+              !Task.isCancelled, id == revision else { return }
+        automaticReadings = (id, notes)
+        annotationCache = nil
+        readingGeneration += 1
+    }
+
+    func saveReading(_ note: BookReading, bookID: UUID, page: Int, wholeBook: Bool) -> Bool {
+        guard let i = library.books.firstIndex(where: { $0.id == bookID }), library.books[i].pages.indices.contains(page),
+              note.start >= 0, note.surface.utf16.count <= 80, !note.surface.isEmpty,
+              note.start <= library.books[i].pages[page].utf16.count - note.range.length,
+              (library.books[i].pages[page] as NSString).substring(with: note.range) == note.surface,
+              note.kana.range(of: #"^[ぁ-ゖァ-ヺゝゞヽヾー]{1,128}$"#, options: .regularExpression) != nil else { return false }
+        var candidate = library, book = candidate.books[i]
+        var notes = book.localReadings ?? [:]
+        notes[page] = (notes[page] ?? []).filter { NSIntersectionRange($0.range, note.range).length == 0 } + [note]
+        book.localReadings = notes
+        if wholeBook {
+            var rules = book.bookReadings ?? [:]
+            rules[note.surface] = note.kana
+            book.bookReadings = rules
+        }
+        candidate.books[i] = book
+        guard persist(candidate) else { return false }
+        annotationCache = nil
+        readingGeneration += 1
+        return true
     }
 
     func refreshTokens() {
@@ -596,6 +693,7 @@ import UniformTypeIdentifiers
                 var candidate = library
                 if let index = candidate.books.firstIndex(where: { $0.name == new.name && $0.pages == new.pages }) {
                     candidate.books[index].removedFromShelf = nil
+                    if let notes = new.sourceReadings { candidate.books[index].sourceReadings = notes }
                     let metadata = candidate.books[index].metadata ?? BookMetadata()
                     candidate.books[index].metadata = metadata.fillingMissing(from: new.metadata)
                     candidate.current = candidate.books[index].id

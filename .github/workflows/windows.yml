@@ -66,6 +66,9 @@ jobs:
           if (!(Test-Path (Join-Path $gpuRuntime 'ggml-vulkan.dll'))) { throw 'Vulkan backend is missing' }
           if (!(Test-Path (Join-Path $gpuRuntime 'LICENSE-LLVM-OpenMP'))) { throw 'Vulkan runtime license is missing' }
           if (!(Test-Path (Join-Path $destination 'resources/reading/runtime/LICENSE-LLVM-OpenMP'))) { throw 'CPU runtime license is missing' }
+          $reader = Join-Path $destination 'resources/reading/sudachi-reader/sudachi-reader.exe'
+          python -c "import json,subprocess,sys; result=json.loads(subprocess.check_output([sys.argv[1]],input='俺が注文する。'.encode(),timeout=45)); assert [r['kana'] for r in result] == ['おれ','ちゅうもん']" "$reader"
+          if ($LASTEXITCODE -ne 0) { throw 'Installed Sudachi helper failed' }
           $env:CALIBRE_CONFIG_DIRECTORY = Join-Path $env:RUNNER_TEMP 'No Calibre Configuration'
           if (Get-ChildItem $destination -Recurse -Filter '*.gguf') { throw 'Model weights must not be bundled' }
           $env:YOMITOKI_EXECUTABLE = $executable

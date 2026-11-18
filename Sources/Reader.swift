@@ -44,6 +44,16 @@ struct ReaderView: View {
     @ObservedObject var translation: LocalTranslation
     @ObservedObject var sentenceAnalysis: SentenceAnalysisState
     @ObservedObject var modelChat: ModelChatState
+    private struct ReadingDraft: Identifiable {
+        let id = UUID()
+        let bookID: UUID
+        let page: Int
+        let start: Int
+        let surface: String
+    }
+    @ViewState private var readingDraft: ReadingDraft?
+    @ViewState private var kanaDraft = ""
+    @ViewState private var useBookReading = false
     @ViewState private var showingExport = false
     @ViewState private var noteDraft: ReadingNote?
     @ViewState private var bookInfo: Book?
@@ -98,6 +108,28 @@ struct ReaderView: View {
             readingMatches = []
             readingMatchIndex = nil
             readingSearchCompleted = false
+        }
+        .task(id: "\(state.revision):\(showReadingKana):\(state.destination)") {
+            if showReadingKana, state.destination == .reading { await state.loadAutomaticReadings() }
+        }
+        .sheet(item: $readingDraft) { draft in
+            VStack(alignment: .leading, spacing: 16) {
+                Text("校正读音").font(.headline)
+                Text(draft.surface).lineLimit(3)
+                TextField("假名读音", text: $kanaDraft)
+                Toggle("本书相同词沿用", isOn: $useBookReading)
+                HStack {
+                    Spacer()
+                    Button("取消") { readingDraft = nil }.keyboardShortcut(.cancelAction)
+                    Button("保存") {
+                        let note = BookReading(start: draft.start, surface: draft.surface, kana: kanaDraft)
+                        if state.saveReading(note, bookID: draft.bookID, page: draft.page, wholeBook: useBookReading) {
+                            readingDraft = nil
+                        }
+                    }.keyboardShortcut(.defaultAction)
+                        .disabled(kanaDraft.range(of: #"^[ぁ-ゖァ-ヺゝゞヽヾー]{1,128}$"#, options: .regularExpression) == nil)
+                }
+            }.padding(24).frame(width: 340)
         }
         .sheet(isPresented: $showingExport) {
             NotebookExportView(words: state.library.words, filteredWords: filtered, selectedWord: state.selectedSavedWord)
@@ -284,6 +316,14 @@ struct ReaderView: View {
                     onModelLookup: state.defineModelSelection, onTranslation: state.translateSelection,
                     selectionLevel: state.selectionLevel,
                     onSentenceAnalysis: state.analyzeSelection, onModelChat: { state.chatSelection($0) },
+                    onEditReading: { range in
+                        let book = state.book
+                        let surface = (book.pages[book.page] as NSString).substring(with: range)
+                        kanaDraft = state.readingAnnotations(showSaved: false, showKana: true)
+                            .first { $0.range == range && !$0.kana.isEmpty }?.kana ?? ""
+                        useBookReading = false
+                        readingDraft = ReadingDraft(bookID: book.id, page: book.page, start: range.location, surface: surface)
+                    },
                     searchHighlight: searchHighlight, pageSize: size,
                     readingOffset: state.readingOffset, onPagination: { value in
                         if value.revision == state.revision { pagination = value }

@@ -25,6 +25,7 @@ macOS 解压后将「读解.app」拖入「应用程序」；Windows 运行安�
 - **移出书架**：右键选择「移出书架」并确认。原文件、笔记和历史记录会保留，重新导入同一个文件可将它加回书架。
 - **书内搜索**：在阅读区顶部搜索当前书籍的正文，可逐个跳转并高亮匹配位置。
 - **单词释义**：离线英文与中文词义、词性、基本形归一；按需调用大模型补充语境释义与词源。
+- **正文注音**：EPUB / MOBI 优先显示书中自带的假名，其余正文用内置 Sudachi 离线分析。选中含汉字的词，点「校正读音」即可修改这一处；勾选「本书相同词沿用」后也应用于本书其他匹配词。已导入的旧电子书重新导入后可补取原注音。
 - **本地翻译**：选中日语句子或段落，使用 Hy-MT2-1.8B Q4 翻译成中文，原文留在本机。
 - **长句分析**：拆解主干、修饰层级与语法难点，提供结构嵌套图。
 - **选文对话**：结合所选文字及附近原文向大模型提问、继续追问，保存对话记录。
@@ -56,7 +57,7 @@ Windows 提供「自动 / GPU / CPU」选项，使用方式与验证范围见 [W
 
 ## 从源码构建
 
-**macOS**：需要 Xcode / Command Line Tools（Swift、Python 3）。
+**macOS**：需要 Xcode / Command Line Tools、Swift 和 Python 3.10+（推荐 3.12）。首次构建会安装固定版本的 SudachiPy、SudachiDict core 和 PyInstaller，生成随应用分发的本地注音组件。
 
 ```sh
 ./scripts/build.sh
@@ -64,7 +65,7 @@ Windows 提供「自动 / GPU / CPU」选项，使用方式与验证范围见 [W
 open "dist/读解.app"
 ```
 
-**Windows**：需要 Node.js 24 和 Python 3；终端用户安装已构建版本时无需这些工具。
+**Windows**：需要 Node.js 24 和 Python 3.12；终端用户安装已构建版本时无需这些工具。
 
 ```powershell
 cd desktop
@@ -81,4 +82,4 @@ Windows 安装包输出到 `dist/windows/`。构建时校验固定版本的字�
 
 macOS 沿用 `~/Library/Application Support/Bunmyaku`，Windows 使用 `%APPDATA%\Yomitoki`，升级不会主动删除已有数据。API key 使用各系统的凭据存储或加密机制保存。
 
-英文词典来自 [JMdict](https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html)，字典许可见 [Dictionary](Resources/Dictionary/SOURCES.txt)；翻译引擎来自 [llama.cpp](https://github.com/ggml-org/llama.cpp)，第三方许可随安装包提供。模型来源与许可见 [Hy-MT2](https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF)。
+注音引擎为 [SudachiPy](https://github.com/WorksApplications/sudachi.rs)，使用 [SudachiDict core](https://github.com/WorksApplications/SudachiDict)，许可证随组件分发。英文词典来自 [JMdict](https://www.edrdg.org/wiki/JMdict-EDICT_Dictionary_Project.html)，字典许可见 [Dictionary](Resources/Dictionary/SOURCES.txt)；翻译引擎来自 [llama.cpp](https://github.com/ggml-org/llama.cpp)，第三方许可随安装包提供。模型来源与许可见 [Hy-MT2](https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF)。

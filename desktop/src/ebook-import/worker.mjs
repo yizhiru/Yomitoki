@@ -62,6 +62,7 @@ async function run() {
     book = await new MOBI({ unzlib: unzlibSync }).open(new File([bytes], name));
   }
   const sections = []; let total = 0;
+  const anchors = {notes: [], offset: 0};
   for (const section of book.sections) {
     const doc = await section.createDocument();
     if (!doc || doc.querySelector('parsererror')) throw new Error('电子书章节损坏，无法读取完整正文。');
@@ -72,13 +73,13 @@ async function run() {
         if (resolved.origin === 'https://ebook.invalid') { const css = loadText(resolved.pathname.slice(1)); if (css) styles.push(css); }
       } catch {}
     }
-    const text = plainText(doc, styles);
+    const text = plainText(doc, styles, anchors);
     if ((total += text.length) > LIMITS.text) throw new Error('提取文字过多，请拆分文档。');
     if (text) sections.push(text);
   }
   if (!sections.length) throw new Error('电子书没有可读取的正文。');
   const metadata = book.metadata ?? {};
-  return { sections, metadata: {
+  return { sections, ruby: anchors.notes, metadata: {
     title: metadataText(metadata.title), author: metadataText(metadata.author),
     publisher: metadataText(metadata.publisher), published: metadataText(metadata.published)
   } };

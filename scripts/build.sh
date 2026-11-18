@@ -29,6 +29,7 @@ cp Resources/Info.plist "$app/Contents/"
 cp -R Resources/Dictionary Resources/zh.tsv "$app/Contents/Resources/"
 cp Resources/AppIcon.png "$app/Contents/Resources/"
 bash scripts/build_icon.sh "$app/Contents/Resources/AppIcon.icns"
+python3 scripts/bundle_readings.py "$app/Contents/Resources"
 python3 scripts/bundle_ebooks.py "$app"
 cp "$database" "$app/Contents/Resources/jmdict.sqlite"
 swiftc -module-cache-path "$PWD/.build/swift-cache" -target "$(uname -m)-apple-macosx14.0" -O \

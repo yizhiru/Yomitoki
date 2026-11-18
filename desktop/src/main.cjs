@@ -237,6 +237,10 @@ async function dispatch(action, input = {}) {
           if (!existing) data.books.push(book);
           else {
             delete existing.removedFromShelf;
+            if (book.sourceReadings) {
+              existing.sourceReadings = book.sourceReadings;
+              existing.readingRevision = randomUUID();
+            }
             if (book.metadata) existing.metadata = { ...book.metadata, ...existing.metadata };
           }
           data.current = existing?.id ?? book.id;
@@ -286,12 +290,29 @@ async function dispatch(action, input = {}) {
     case 'level': { const selection = selected(input); return selection.level; }
     case 'save-note': store.saveNote(input); return state();
     case 'delete-note': store.deleteNote(input.id); return state();
+    case 'save-reading': {
+      const target = selected(input);
+      const kana = String(input.kana ?? '').trim();
+      if (!/^[ぁ-ゖァ-ヺゝゞヽヾー]{1,128}$/u.test(kana) || !/\p{Script=Han}/u.test(target.text) ||
+          target.text.length > 80 || /\s/u.test(target.text) || target.text !== input.surface)
+        throw new Error('请选择含汉字的词，并输入假名读音。');
+      store.change(data => {
+        const book = data.books.find(b => b.id === target.bookID);
+        book.localReadings ??= {};
+        const notes = book.localReadings[target.page] ?? [];
+        book.localReadings[target.page] = notes.filter(r => r.start >= target.end || r.start + r.surface.length <= target.start);
+        book.localReadings[target.page].push({start:target.start, surface:target.text, kana});
+        if (input.wholeBook === true) book.bookReadings = {...book.bookReadings, [target.text]:kana};
+        book.readingRevision = randomUUID();
+      });
+      return state();
+    }
     case 'reading-annotations': {
       const book = store.book;
       if (!book || book.id !== input.bookID || book.page !== input.page) return [];
       const { highlightSavedWords = true, showReadingKana = true } = store.data.settings;
       const saved = new Set(highlightSavedWords ? store.data.words.map(word => word.definition.head) : []);
-      return showReadingKana || saved.size ? dictionary.readingAnnotations(book.pages[book.page], saved, showReadingKana) : [];
+      return require('./readings.cjs').annotations(book, dictionary, saved, showReadingKana, resources());
     }
     case 'word-at': {
       const book = store.book;

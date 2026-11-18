@@ -40,6 +40,7 @@ compile_preview() {
 
 install_preview() {
     # The engine and dictionary remain in the existing bundle.
+    python3 scripts/bundle_readings.py "$app/Contents/Resources"
     python3 scripts/bundle_ebooks.py "$app"
     cp Resources/zh.tsv "$app/Contents/Resources/"
     mv "$stage/Yomitoki" "$app/Contents/MacOS/Yomitoki"
@@ -50,7 +51,7 @@ source_fingerprint() {
     # Include file contents and names so atomic saves, additions and removals are detected.
     find Sources -maxdepth 1 -type f -name '*.swift' -exec shasum -a 256 {} + | LC_ALL=C sort
     printf '%s\n' "$signing_identity"
-    shasum -a 256 scripts/dev.sh scripts/bundle_ebooks.py Resources/zh.tsv
+    shasum -a 256 scripts/dev.sh scripts/bundle_ebooks.py scripts/bundle_readings.py Resources/Readings/sudachi_reader.py Resources/zh.tsv
     find desktop/src/ebook-import desktop/src/vendor Resources/Ebook -type f -exec shasum -a 256 {} + | LC_ALL=C sort
 }
 

@@ -91,9 +91,8 @@ class Dictionary {
         const candidates = readingsByForm.get(base);
         if (candidates.size > 1) {
           const chosen = contextualReading(text, start, surface, candidates);
-          if (!chosen) kana = '';
-          else if (token.basic_form === surface) kana = chosen;
-          else if (!chosen.startsWith(kana.slice(0, 1))) kana = '';
+          if (chosen) kana = chosen;
+          else if (token.pos === '動詞' || token.pos === '形容詞' || !candidates.has(kana)) kana = '';
         } else if (token.basic_form === surface && candidates.size === 1 && !candidates.has(kana)) {
           kana = '';
         }

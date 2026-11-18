@@ -116,11 +116,20 @@ private func compact(_ text: String) -> String { String(text.filter { !$0.isWhit
         try require(state.library.books.count == originalCount, "Duplicate import created another book")
         let range = (state.book.pages[0] as NSString).range(of: "喫茶店")
         try require(range.location != NSNotFound, "Imported body available to reader")
+        try require(state.book.sourceReadings?[0].contains(BookReading(start: range.location, surface: "喫茶店", kana: "きっさてん")) == true,
+                    "Author ruby retains section UTF-16 offset")
+        await state.loadAutomaticReadings()
+        try require(state.readingGeneration > 0, "Bundled Sudachi produced readings")
+        let correction = BookReading(start: range.location, surface: "喫茶店", kana: "さてん")
+        try require(state.saveReading(correction, bookID: state.book.id, page: 0, wholeBook: false), "Save local ruby")
+        try require(state.readingAnnotations(showSaved: false, showKana: true).contains(
+            ReadingAnnotation(range: range, kana: "さてん", saved: false)), "Local ruby overrides original")
         _ = state.choose(range.location)
         try require(state.lookup?.definition.head == "喫茶店", "Lookup of imported word")
         state.save(state.lookup!)
         let restored = ReaderState(directory: directory, resources: resources)
         try require(restored.book.pages == state.book.pages && restored.library.words.contains { $0.definition.head == "喫茶店" }, "Restart restores reader and notebook")
+        try require(restored.book.localReadings?[0]?.contains(correction) == true, "Restart restores manual ruby")
         let saved = try Data(contentsOf: state.path)
         for delay in [UInt64(0), 20_000_000] {
             state.failure = nil

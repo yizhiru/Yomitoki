@@ -1,7 +1,13 @@
 import AppKit
 import WebKit
 
+struct RubyAnchor {
+    let at: Int
+    let surface: String
+    let kana: String
+}
 struct EbookDocument {
+    var ruby: [RubyAnchor] = []
     let sections: [String]
     var metadata: BookMetadata?
 }
@@ -190,7 +196,12 @@ struct EbookDocument {
             let fields = value["metadata"] as? [String: String] ?? [:]
             let metadata = BookMetadata(title: fields["title"], author: fields["author"],
                                         publisher: fields["publisher"], published: fields["published"])
-            finish(.success(EbookDocument(sections: sections, metadata: metadata)))
+            let ruby = (value["ruby"] as? [[String: Any]] ?? []).compactMap { item -> RubyAnchor? in
+                guard let at = item["at"] as? Int, let surface = item["surface"] as? String,
+                      let kana = item["kana"] as? String else { return nil }
+                return RubyAnchor(at: at, surface: surface, kana: kana)
+            }
+            finish(.success(EbookDocument(ruby: ruby, sections: sections, metadata: metadata)))
         } else {
             let error = (value["error"] as? String).map { String($0.prefix(500)) } ?? "电子书解析失败，文件格式无效或内容过大。"
             finish(.failure(BookImport.Failure(message: error)))

@@ -47,7 +47,7 @@ async function readEbook(file, { signal, parent, timeoutMs = 30000 } = {}) {
       if (!Array.isArray(value.sections) || !value.sections.length || value.sections.length > 10000
         || !value.sections.every(text => typeof text === 'string')
         || value.sections.reduce((sum, text) => sum + text.length, 0) > ((kind === 'MDX' || kind === 'ZIP') ? 100000000 : 10000000)) { finish(new Error('电子书正文无效或内容过多。')); return; }
-      finish(null, { sections: value.sections, metadata: value.metadata });
+      finish(null, { sections: value.sections, metadata: value.metadata, ruby: value.ruby });
     };
     ipcMain.on(resultChannel, result);
     signal?.addEventListener('abort', abort, { once: true });

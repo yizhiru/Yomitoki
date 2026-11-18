@@ -59,7 +59,13 @@ function renderReadingText(text, annotations = []) {
     const { start, end, kana, saved } = annotation;
     append(fragment, offset, start);
     const word = element(kana ? 'ruby' : 'span', undefined, saved ? 'saved-word' : undefined);
-    append(word, start, end);
+    let cursor = start;
+    for (const [from,to] of annotation.highlights ?? []) {
+      append(word,cursor,from);
+      const mark = element('span',undefined,'saved-word');
+      append(mark,from,to); word.append(mark); cursor = to;
+    }
+    append(word, cursor, end);
     if (kana) word.append(element('rt', kana));
     fragment.append(word);
     offset = end;
@@ -71,7 +77,7 @@ function refreshReadingAnnotations(book) {
   if (!book) { annotationKey = undefined; return; }
   const { highlightSavedWords = true, showReadingKana = true } = state.settings;
   const saved = highlightSavedWords ? state.words.map(word => word.definition.head) : [];
-  const key = JSON.stringify([book.id, book.page, saved, showReadingKana]);
+  const key = JSON.stringify([book.id, book.page, book.readingRevision, saved, showReadingKana]);
   if (annotationKey === key) return;
   annotationKey = key;
   if (!saved.length && !showReadingKana && !$('reader').querySelector('ruby, .saved-word')) return;
@@ -804,11 +810,11 @@ async function updateSelection() {
   const id = ++selectionRequest;
   const activeSelection = readerSelection();
   const toolbar = $('selection-toolbar');
-  if (!activeSelection || $('note-dialog').open) { toolbar.hidden = true; return; }
+  if (!activeSelection || document.querySelector('dialog[open]')) { toolbar.hidden = true; return; }
   const { range, payload } = activeSelection;
   let level; try { level = await api.call('level', payload); } catch { level = 'none'; }
   const book = currentBook();
-  if (id !== selectionRequest || view !== 'reading' || $('note-dialog').open ||
+  if (id !== selectionRequest || view !== 'reading' || document.querySelector('dialog[open]') ||
       payload.bookID !== book?.id || payload.page !== book?.page) return;
   selection = payload;
   toolbar.replaceChildren();
@@ -816,6 +822,9 @@ async function updateSelection() {
     toolbar.append(button('词典释义', () => runAction('dictionary')), button('大模型释义', () => runAction('definition')));
   } else if (level === 'sentence') toolbar.append(button('本地翻译', () => runAction('translate')), button('长句分析', () => runAction('analysis')));
   else if (level === 'paragraph') toolbar.append(button('本地翻译', () => runAction('translate')));
+  const surface = book.pages[book.page].slice(payload.start,payload.end);
+  if (surface.length <= 80 && /\p{Script=Han}/u.test(surface) && !/[\s。！？、]/u.test(surface))
+    toolbar.append(button('校正读音', () => editReading(payload,surface)));
   if (level !== 'none') toolbar.append(button('大模型对话', () => showChat()));
   if (!toolbar.childElementCount) { toolbar.hidden = true; return; }
   toolbar.hidden = false;
@@ -1145,3 +1154,23 @@ $('export-confirm').addEventListener('click', () => attempt(async () => {
   if (await api.call('export', { format: $('export-format').value, fields, ids })) { $('export-dialog').close(); notice('生词本已导出'); }
 }));
 attempt(async () => { sync(await api.call('state')); clearDetail(); $('reader').focus(); });
+
+let readingDraft;
+function editReading(payload,surface) {
+  readingDraft = {...payload,surface};
+  $('selection-toolbar').hidden = true;
+  $('reading-surface').textContent = surface;
+  const ruby = readerSegments.find(s => s.start === payload.start && s.end === payload.end)?.node.parentElement.closest('ruby');
+  $('reading-value').value = ruby?.querySelector('rt')?.textContent ?? '';
+  $('reading-book-scope').checked = false;
+  $('reading-edit').showModal();
+  $('reading-value').focus();
+  $('reading-value').select();
+}
+$('reading-cancel').onclick = () => $('reading-edit').close();
+$('reading-form').onsubmit = async event => {
+  event.preventDefault();
+  const result = await attempt(() => api.call('save-reading', {...readingDraft,
+    kana:$('reading-value').value, wholeBook:$('reading-book-scope').checked}));
+  if (result) { $('reading-edit').close(); sync(result); }
+};

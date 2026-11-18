@@ -141,6 +141,7 @@ button.primary { background:var(--accent); color:white; } button.primary:hover:n
 dialog { width:min(740px,90vw); max-height:90vh; overflow:auto; border:1px solid var(--control-line); border-radius:14px; box-shadow:0 16px 64px #282a3a33; padding:24px; background:var(--paper); color:var(--ink); }
 dialog::backdrop { background:#282a3a55; }
 .dialog-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+#reading-edit { width:min(360px,90vw); }
 #book-info-dialog { width:min(480px,90vw); }
 #book-context-menu {
   position:fixed; inset:auto; margin:0; padding:4px; border:1px solid var(--control-line);

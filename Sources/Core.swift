@@ -26,6 +26,13 @@ struct BookMetadata: Codable, Sendable {
     }
 }
 
+struct BookReading: Codable, Equatable, Sendable {
+    var start: Int
+    var surface: String
+    var kana: String
+    var range: NSRange { NSRange(location: start, length: surface.utf16.count) }
+}
+
 struct Book: Codable, Identifiable {
     var id = UUID()
     let name: String
@@ -35,6 +42,9 @@ struct Book: Codable, Identifiable {
     var readingOffset: Int? = nil
     var metadata: BookMetadata? = nil
     var removedFromShelf: Bool? = nil
+    var sourceReadings: [[BookReading]]?
+    var localReadings: [Int: [BookReading]]?
+    var bookReadings: [String: String]?
 
     func clampedReadingOffset(_ offset: Int) -> Int {
         min(max(0, offset), max(0, pages[page].utf16.count - 1))
@@ -197,6 +207,7 @@ enum BookImport {
         let kind = url.pathExtension.uppercased()
         let pages: [String]
         let metadata: BookMetadata?
+        var sourceReadings: [[BookReading]]?
         switch kind {
         case "PDF":
             (pages, metadata) = try await Task.detached(priority: .userInitiated) { try readPDF(url) }.value
@@ -212,6 +223,31 @@ enum BookImport {
             let ebook = try await EbookImport.readDocument(url, resources: ebookResources, timeout: timeout)
             pages = paginate(ebook.sections.joined(separator: "\n\n"))
             metadata = ebook.metadata
+            if !ebook.ruby.isEmpty {
+                var ordinal = 0, index = 0
+                // Match JS whitespace during the transport from pre-pagination text.
+                var whitespace = CharacterSet.whitespacesAndNewlines
+                whitespace.remove(charactersIn: "\u{0085}\u{200B}")
+                whitespace.insert(charactersIn: "\u{FEFF}")
+                sourceReadings = pages.map { page in
+                    var notes: [BookReading] = []
+                    let text = page as NSString
+                    for start in 0..<text.length {
+                        guard index < ebook.ruby.count else { break }
+                        if let c = Unicode.Scalar(text.character(at: start)), whitespace.contains(c) { continue }
+                        while index < ebook.ruby.count, ebook.ruby[index].at == ordinal {
+                            let note = ebook.ruby[index]
+                            index += 1
+                            let range = NSRange(location: start, length: note.surface.utf16.count)
+                            if NSMaxRange(range) <= text.length, text.substring(with: range) == note.surface {
+                                notes.append(BookReading(start: start, surface: note.surface, kana: note.kana))
+                            }
+                        }
+                        ordinal += 1
+                    }
+                    return notes
+                }
+            }
         default:
             throw Failure(message: "请选择 PDF、EPUB、MOBI、SRT、TXT 或 MD 文件。")
         }
@@ -219,7 +255,7 @@ enum BookImport {
         guard pages.contains(where: { !$0.isEmpty }) else {
             throw Failure(message: "文件中没有可提取的文字。扫描版 PDF 需要先进行 OCR。")
         }
-        return Book(name: url.lastPathComponent, kind: kind, pages: pages, metadata: metadata)
+        return Book(name: url.lastPathComponent, kind: kind, pages: pages, metadata: metadata, sourceReadings: sourceReadings)
     }
 
     private static func readText(_ url: URL, description: String) throws -> String {

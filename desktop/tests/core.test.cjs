@@ -109,6 +109,9 @@ test('真实词典与日语形态分析：基本形、读音及三级选区', as
     ['取り出した。', '取り出', 'とりだ'],
     ['駅に行った。', '行', 'い'], ['会議を行った。', '行', 'おこな'],
     ['扉が開く。', '開', 'あ'], ['本を開く。', '開', 'ひら'],
+    ['俺は客に注文を聞いた。', '俺', 'おれ'],
+    ['俺は客に注文を聞いた。', '客', 'きゃく'],
+    ['俺は客に注文を聞いた。', '注文', 'ちゅうもん'],
   ]) {
     const readings = dictionary.readingAnnotations(sentence, new Set(), true);
     assert.ok(readings.some(({ start, end, kana: reading }) => sentence.slice(start, end) === base && reading === kana), sentence);
